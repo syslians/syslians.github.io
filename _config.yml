@@ -155,6 +155,7 @@ baseurl: ""
 
 # ------------ The following options are not recommended to be modified ------------------
 
+markdown: kramdown
 kramdown:
   footnote_backlink: "&#8617;&#xfe0e;"
   syntax_highlighter: rouge
