@@ -2,7 +2,7 @@
 layout: post
 title: "라우팅 프로토콜"
 date: 2025-08-05 22:00:00 +0900
-categories: [네트워크, 라우팅, 정적 라우팅]
+categories: [네트워크, 라우팅, 정적 라우팅, OPSF, RIP, BGP]
 author: cotes
 published: true
 ---
