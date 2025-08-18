@@ -84,7 +84,7 @@ ex(Cisco ios)
 - 비용(metric): 홉 수(Hop Count) - 목적지까지 거치는 라우터 수
   
 - 방정식  
-$D_x(y) = \min\limits_{v \in N(x)} [c(x,v) + D_v(y)]$
+$$D_x(y) = \min\limits_{v \in N(x)} [c(x,v) + D_v(y)]$$
 
 - $D_x(y)$: 노드 x에서 목적지 y까지의 최소 비용
 - $c(x, y)$: x에서 인접 노드 v까지의 링크 비용(홉 수 1)
