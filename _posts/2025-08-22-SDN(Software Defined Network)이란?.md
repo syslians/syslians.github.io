@@ -30,7 +30,7 @@ SDN(Software Defined Network) SDN의 핵심은 **Control Plane(제어 영역)과
 수많은 라우터와 스위치들을 static하게 설정하기에는 현실적으로 어려우니까요. 즉, 로드밸런싱이 어려웠습니다. 하지만, SDN은 이런 상황의 변화를
 가져왔습니다.
 
-![Bit Operations](https://postfiles.pstatic.net/MjAyNDAzMjlfMTcx/MDAxNzExNjQzNjc3MjAy.R6GXOu_UnbcNvVF77RCwncrtrKcJv6F3GESnq_L-d20g.J9rxRu1QSdhoDavY5QEAHdpI22M0UtQksJUJkZps5KYg.PNG/9.png?type=w773)
+![Bit Operations](https://camo.githubusercontent.com/4f13234e2ec7bba259c578e63453a394a77b9a8e76c8d7646260595853cfedc7/68747470733a2f2f706f737466696c65732e707374617469632e6e65742f4d6a41794e44417a4d6a6c664d5463782f4d4441784e7a45784e6a517a4e6a63334d6a41792e523647584f755f556e62634e76564637375243776e637274724b634a763646334745536e715f4c2d643230672e4a397278527531515364686f44617659355145414864704932324d305574516b734a554a6b5a7073354b59672e504e472f392e706e673f747970653d77373733)
 
 예를 들어보겠습니다. 기존에는 경로 정보가 있을때 U에서 나가는 트래픽을  V와 X에 각각 분산시키고
 싶을 경우, 기존의 최단 알고리즘을 통하면 항상 최단의 경로로만 라우팅할 수 있었습니다.
@@ -73,7 +73,7 @@ SDN 적용으로 구글은 아래 3가지 부분에서 크게 이득을 볼 수 
 화이트박스 스위치는 사용자가 네트워크 장비의 동작방식을 직접 결정할 수 있게 하는 개방형 장비로, 구글은 이를 통해 더 효율적이고 경제적인 네트워크 인프라를 구축할 수 있게 됐습니다.
 또한 구축  비용의 절감 뿐 아니라 전반적인 서비스 품질의 향상 효과도 거둘 수 있었습니다.
 
-![Bit Operations](https://postfiles.pstatic.net/MjAyNDAzMjlfMjY0/MDAxNzExNjcxNzEwNjA2.NqDJMMU7ZLkbyGAiaMNVREyaembVarNsubwreotmScog.cExAniweTf_gnMZJl0lrtlvKTNxiyPJA_JD_lyOEcNkg.PNG/%EB%B8%94%EB%A1%9C%EA%B7%B8_%EC%84%AC%EB%84%A4%EC%9D%BC(231030)_(1).png?type=w773)
+![Bit Operations](https://camo.githubusercontent.com/694de70facdb05446ae0a7afb1c29f7012025ac712b329c67c86be8eca39fea2/68747470733a2f2f706f737466696c65732e707374617469632e6e65742f4d6a41794e44417a4d6a6c664d6a59302f4d4441784e7a45784e6a63784e7a45774e6a41322e4e71444a4d4d55375a4c6b6279474169614d4e5652457961656d625661724e7375627772656f746d53636f672e634578416e69776554665f676e4d5a4a6c306c72746c764b544e786979504a415f4a445f6c794f45634e6b672e504e472f2545422542382539342545422541312539432545412542372542385f25454325383425414325454225383425413425454325394425424328323331303330295f2831292e706e673f747970653d77373733)
 
 [그림]구글의 다양한 SDN 기술
 ​
