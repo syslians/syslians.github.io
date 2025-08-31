@@ -5,7 +5,8 @@ date: 2025-08-22 22:00:00 +0900
 categories: [Router, Switch, Routing, L2, L3, GNS, VMware, Protocol,]
 author: cotes
 published: true
----<img width="1702" height="870" alt="gns기본네트워크토폴리지" src="https://github.com/user-attachments/assets/e287866b-ca4f-47a6-a9de-cefd1670d625" />
+---
+<img width="1702" height="870" alt="gns기본네트워크토폴리지" src="https://github.com/user-attachments/assets/e287866b-ca4f-47a6-a9de-cefd1670d625" />
 
 
 아래 네트워크 토폴로지에서 host -> Router 로 정상적으로 트래픽이 흐르지 않는 문제가 발생했습니다. ip 설정, 이전에 스위치와 라우터 포트간에 통신 방식(duplex, half duplex)
