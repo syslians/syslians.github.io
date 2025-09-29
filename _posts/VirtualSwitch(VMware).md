@@ -1,3 +1,11 @@
+---
+layout: post
+title: "VirtualSwitch(VMware)"
+date: 2025-07-27 22:00:00 +0900
+categories: [VMware, 서버가상화, vCenter, vSphere, Bare metal, Virtualization, Switch, VirtualSwitch, Network, SDN, Private Cloud, SDDC]
+author: cotes
+published: true
+---
 
 ### Virtual Switch
 가상 스위치(Virtual Switch)란 가상 네트워크(Virtual Network)에서 VM을 위해서 제공되는 스위치를 의미합니다. 이 스위치는 Host OS
@@ -35,7 +43,7 @@ vSphere Standard Switch(vSS)와 vSphere Distributed Switch(vDS)는 vSphere 환�
 두 스위치는 모두 이더넷 Layer 2 스위치와 유사하게 **업링크** 와 **포트 그룹** 이라는 공통 기능을 가지고 있습니다. 또한, 두 스위치 모두
 레이어 2 트래픽 처리, 가상 LAN, 세분화, 801.1Q 태깅, NIC 티밍 및 아웃바운드 트래픽 쉐이핑을 지원합니다.
 
-vSphere Standard Switch (vSS)
+### vSphere Standard Switch (vSS)
 - 기본 설정 및 가용성: ESXi 하이퍼바이저를 처음 설치할 때에 기본 네트워크 설정으로 제공되며, ESXi 설치시 무료로 제공됩니다. 각 ESXi 호스트에 여러개의
 - vSS를 생성할 수 있습니다.
 
