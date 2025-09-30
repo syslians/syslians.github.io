@@ -14,8 +14,7 @@ published: true
 ### 1. 아키텍쳐 및 개념 차이
 아래는 Red Hat 공식 사이트의 전통적인 VM 아키텍쳐와 컨테이너 아키텍쳐를 비교한 예시입니다.
 
-![Bit Operations](<img width="1079" height="563" alt="image" src="https://github.com/user-attachments/assets/71805832-63ec-49d6-8772-6a5d04b3c968" />)
-
+![Bit Operations](https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdna%2FQ4kJV%2FbtrSKRbTxd9%2FAAAAAAAAAAAAAAAAAAAAADwBbu-xdtel8wCJkOlI6J4vlTczaKKt7iQGY_GrpLjZ%2Fimg.jpg%3Fcredential%3DyqXZFxpELC7KVnFOS48ylbz2pIh7yKj8%26expires%3D1759244399%26allow_ip%3D%26allow_referer%3D%26signature%3Dt0cIDsW7J3rA1lIElGBVvpULkIk%253D)
 VM은 하이퍼바이저를 통해 물리 하드웨어를 가상화하여 각 게스트 OS를 실행합니다. 반면, 컨테이너는 애플리케이션 실행에 필요한 코드와 라이브러리만 패키징하여 Host OS 커널을 공유하며 격리된 프로세스로 실행됩니다. 이처럼 VM은 하드웨어 전체를 복제하는 방식(커널 분리)인 반면, 컨테이너는 운영체제 수준에서 프로세스 단위로 격리합니다. 구조적 차이로 인해 VM에는 각 인스턴스마다 독립 OS가 필요하여 오버헤드가 크고 부팅 시간도 길지만, 컨테이너는 Host OS Kernel만 사용하므로 경량화된 실행 환경을 제공합니다. 아래 표는 두 기술의 핵심 특성을 비교한 것입니다.
 
 | 특성 | 컨테이너 | 가상 머신(VM) |
