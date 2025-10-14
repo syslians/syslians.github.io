@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "하이퍼바이저 vs Virtual Machine"
+title: "Virtual Machine"
 categories: [네트워크, 가상화, VMware, ESXi, HyperVisor]
 author: cotes
 published: true
