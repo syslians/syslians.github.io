@@ -372,7 +372,9 @@ CPU Utilization ↓
 - 이 집합에 메모리에 완전히 올라와 있어야만 페이지 폴트율이 낮게 유지됩니다.
 
 공식
+'''
 $WSS_i(t) = {{pages referenced by process } \{ in } [t-\Delta,\, t] \;\}$
+'''
 - D: 전체 시스템이 요구하는 프레임 수
 - M: 실제 물리적 프레임 수
 
