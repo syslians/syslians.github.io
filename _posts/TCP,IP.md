@@ -1,7 +1,7 @@
 ---
 layout: post
-title: ""
-categories: [TCP/IP(3-way-handshake,슬라이딩 윈도우, 혼잡제어)]
+title: "TCP/IP(3-way-handshake,슬라이딩 윈도우, 혼잡제어)"
+categories: [네트워크, TCP/IP, 혼잡제어, 슬라이딩 윈도우]
 author: cotes
 published: true
 ---
