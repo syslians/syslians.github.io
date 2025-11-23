@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Docker, Kubernetes 핵심 내용"
-categories: [Docker, K8s, Kubernetes]
+title: "Docker"
+categories: [Docker, K8s, Kubernetes, Container]
 author: cotes
 published: true
 ---
