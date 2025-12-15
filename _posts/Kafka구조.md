@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "프로그래머스 삼총사(조합)"
-categories: [알고리즘, 조합]
+title: "Kafka구조"
+categories: [Kafka, MessageBroker]
 author: cotes
 published: true
 ---
