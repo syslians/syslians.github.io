@@ -1,8 +1,8 @@
 ---
 layout: post
 title: "쿠버네티스 스케쥴러(kube-scheduler)"
-date: 2025-07-27 22:00:00 +0900
-categories: [k8s]
+date: 2026-01-08 22:00:00 +0900
+categories: [k8s, kubernetes, kube-scheduler]
 author: cotes
 published: true
 ---
