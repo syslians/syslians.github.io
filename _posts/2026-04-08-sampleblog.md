@@ -1,0 +1,11 @@
+---
+title: "sample_blog"
+date: "2026-04-08T13:30:37.039Z"
+categories: ["파이썬","넘파이"]
+author: "현제 김_7254"
+slug: "sampleblog"
+---
+
+샘플샘플ㅏㅏㅏ
+
+![image](https://prod-files-secure.s3.us-west-2.amazonaws.com/674ea912-a9b3-41a6-800b-ffea62b3d03d/976927db-256b-4d43-9511-9e1421a5eac9/_.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB466VAACJT7C%2F20260408%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260408T133038Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEDQaCXVzLXdlc3QtMiJHMEUCIC%2FC6vJPW6tgw2BOnaZd0DSq6wD8%2F5wjHX%2BvkK9GVDGIAiEAvjHZ6RxBaF3kfV%2FPahoOeonshOYv8%2FkdHwIcUnLfi7cqiAQI%2Ff%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw2Mzc0MjMxODM4MDUiDLOwXQR2lGR2s4LQ2CrcA%2Fs%2F9IhaJEk01oDm5SlsHSr%2BGGD1fukQHMaumYL8rQXvjLgUlTA2pW2e5LOklFPh46ZXuaJgKVvmhK1pLJH%2FKuU9R5L3e3yc7UnQT8av4BUzOovTj%2Bpekb4IjOJwPBxwNsCqqXjNGYWjg%2F0ZFBx3H246K%2FtKIhndPZ2%2F6BnfhxeTbgEX4r8tjPkOV2tdwviPghDQxI1OCpqJks3kB6zawZrQlzbn43E%2BsEEDgZbwl0lEV1uBp6DJoibJq%2BE2uhNQSRZcNAF5afO0ayuXToyWSVP9leFYdjOUP6flbXgFPfcEFjn1L%2BUpsGz%2BUSzBdV0b5uQDktNwUhSr1OGa%2FxO1ggb4pxOv3zdX%2FqnHsSWMwq%2FvTtMnCku4kaqQ%2FDfE7k5aWxRxRB5wuEqzgUnNu%2B8Zvgg2Hz%2FAgMXYFeZr71wYyzj819pXkCUVG86yVbMrc84ysIvb4dWrxBruBSr7oGs%2B9ZUcIPXy18mr0z7G%2FzXNPEpcegoE2KwZmm2hmwMnU2B2jDvesy0CPXm2qNL%2FJtjnTIB4eQZg%2BhreMkQgboI0Ino%2BaD1TlA9CiqcxcPpEkndbPrFl%2F91f4VjCfW609Nloq%2FFTD%2BF27HrXek%2FFqVcVAcaGCwOe1q2ssAPWvCe5MMf%2B2M4GOqUBAmg4N3Lk6T849llvuccQlt1jBDLmB9CmltzNbg8L9Va%2Fy0RQaYvvo%2F2i9xEtrqGIawkRFxYg7EH3bTGZ9DebbFdEEKqrM9Y73x8vaouMaZsoy7HYpJoPyI5nkoBC%2BHUa3zVERz1JdsvpPBWw6vELa7xu8mP9j3elFcBZYzJoBmTNVWgGTK9N%2BMtrm2YNy5s6Hi4FqWeqkr4%2BrT95nFU4aEdjm9HK&X-Amz-Signature=e8ef2bf399091ca6a745bf72a2cdd31290f47dccf375d2a738dfa1c1fdf57d53&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject)
