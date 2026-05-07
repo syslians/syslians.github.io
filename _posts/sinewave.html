@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>정현파 인터랙티브 위젯</title>
+  <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --bg2: #f5f5f3; --text: #1a1a1a; --text2: #666;
+  --border: rgba(0,0,0,0.12); --teal: #1D9E75; --purple: #534AB7;
+  --coral: #D85A30; --blue: #378ADD; --amber: #BA7517; --ref: #AFA9EC;
+  --mono: 'DM Mono', 'Fira Mono', 'Menlo', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1a1a1a; --bg2: #242424; --text: #e8e8e8; --text2: #888; --border: rgba(255,255,255,0.12); }
+}
+.widget { max-width: 700px; margin: 0 auto; padding: 1.5rem 1rem 2rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--text); }
+.tabs { display: flex; gap: 6px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.tab-btn { font-size: 13px; font-weight: 500; padding: 6px 16px; border: 0.5px solid var(--border); border-radius: 99px; cursor: pointer; background: transparent; color: var(--text2); transition: all 0.15s; }
+.tab-btn.active { background: var(--bg2); color: var(--text); border-color: rgba(0,0,0,0.25); }
+.panel { display: none; }
+.panel.active { display: block; }
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 1rem; }
+.stat { background: var(--bg2); border-radius: 8px; padding: 8px 12px; }
+.stat-label { font-size: 10px; color: var(--text2); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+.stat-val { font-size: 17px; font-weight: 500; font-family: var(--mono); color: var(--text); }
+.ctrl { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ctrl label { font-size: 12px; color: var(--text2); width: 110px; flex-shrink: 0; font-family: var(--mono); }
+.ctrl input[type=range] { flex: 1; accent-color: var(--teal); }
+.ctrl .cv { font-size: 13px; font-weight: 500; font-family: var(--mono); width: 44px; text-align: right; color: var(--text); }
+.canvases { display: grid; grid-template-columns: 200px minmax(0,1fr); gap: 14px; align-items: center; margin-bottom: 8px; }
+.canvas-label { font-size: 10px; font-family: var(--mono); color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.widget canvas { display: block; width: 100%; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); font-family: var(--mono); }
+.leg-dot { width: 12px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .canvases { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<div class="widget">
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('amp')">진폭 (Amplitude)</button>
+  <button class="tab-btn" onclick="switchTab('freq')">주파수 (Frequency)</button>
+  <button class="tab-btn" onclick="switchTab('phase')">위상 (Phase)</button>
+  <button class="tab-btn" onclick="switchTab('anim')">애니메이션</button>
+</div>
+
+<!-- 진폭 패널 -->
+<div id="panel-amp" class="panel active">
+  <div class="stat-row">
+    <div class="stat"><div class="stat-label">진폭 A</div><div class="stat-val" id="amp-stat">1.0</div></div>
+    <div class="stat"><div class="stat-label">최댓값</div><div class="stat-val" id="amp-max">+1.0</div></div>
+    <div class="stat"><div class="stat-label">최솟값</div><div class="stat-val" id="amp-min">−1.0</div></div>
+    <div class="stat"><div class="stat-label">주기 T</div><div class="stat-val">2π</div></div>
+  </div>
+  <div class="ctrl">
+    <label>진폭 A</label>
+    <input type="range" min="0.2" max="1.8" step="0.1" value="1.0" id="ampR" oninput="drawAmp()">
+    <span class="cv" id="ampV">1.0</span>
+  </div>
+  <div class="canvases">
+    <div>
+      <div class="canvas-label">단위원 (반지름 = A)</div>
+      <canvas id="c-amp-circle" width="400" height="400" style="height:200px"></canvas>
+    </div>
+    <div>
+      <div class="canvas-label">y(t) = A · sin(t)</div>
+      <canvas id="c-amp-wave" width="840" height="400" style="height:200px"></canvas>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#1D9E75"></div>현재 파형</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#AFA9EC;opacity:0.7"></div>기준 (A=1)</div>
+  </div>
+</div>
+
+<!-- 주파수 패널 -->
+<div id="panel-freq" class="panel">
+  <div class="stat-row">
+    <div class="stat"><div class="stat-label">주파수 f</div><div class="stat-val" id="freq-stat">1.0 Hz</div></div>
+    <div class="stat"><div class="stat-label">주기 T=1/f</div><div class="stat-val" id="freq-T">1.00 s</div></div>
+    <div class="stat"><div class="stat-label">각속도 ω</div><div class="stat-val" id="freq-omega">6.28</div></div>
+    <div class="stat"><div class="stat-label">진폭</div><div class="stat-val">1.0</div></div>
+  </div>
+  <div class="ctrl">
+    <label>주파수 f (Hz)</label>
+    <input type="range" min="0.5" max="4" step="0.5" value="1" id="freqR" oninput="drawFreq()">
+    <span class="cv" id="freqV">1.0</span>
+  </div>
+  <div class="canvases">
+    <div>
+      <div class="canvas-label">원 위의 각속도</div>
+      <canvas id="c-freq-circle" width="400" height="400" style="height:200px"></canvas>
+    </div>
+    <div>
+      <div class="canvas-label">y(t) = sin(2π·f·t)</div>
+      <canvas id="c-freq-wave" width="840" height="400" style="height:200px"></canvas>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#534AB7"></div>현재 파형</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#AFA9EC;opacity:0.7"></div>기준 (f=1)</div>
+  </div>
+</div>
+
+<!-- 위상 패널 -->
+<div id="panel-phase" class="panel">
+  <div class="stat-row">
+    <div class="stat"><div class="stat-label">위상 φ</div><div class="stat-val" id="phase-stat">0.0 rad</div></div>
+    <div class="stat"><div class="stat-label">각도</div><div class="stat-val" id="phase-deg">0°</div></div>
+    <div class="stat"><div class="stat-label">시간 이동</div><div class="stat-val" id="phase-shift">0.00 s</div></div>
+    <div class="stat"><div class="stat-label">주기 T</div><div class="stat-val">1.0 s</div></div>
+  </div>
+  <div class="ctrl">
+    <label>위상 φ (rad)</label>
+    <input type="range" min="0" max="6.28" step="0.1" value="0" id="phaseR" oninput="drawPhase()">
+    <span class="cv" id="phaseV">0.0</span>
+  </div>
+  <div class="canvases">
+    <div>
+      <div class="canvas-label">단위원 (시작 위치)</div>
+      <canvas id="c-phase-circle" width="400" height="400" style="height:200px"></canvas>
+    </div>
+    <div>
+      <div class="canvas-label">y(t) = sin(t + φ)</div>
+      <canvas id="c-phase-wave" width="840" height="400" style="height:200px"></canvas>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#BA7517"></div>현재 파형 (위상 φ)</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#AFA9EC;opacity:0.7"></div>기준 (φ=0)</div>
+  </div>
+</div>
+
+<!-- 애니메이션 패널 -->
+<div id="panel-anim" class="panel">
+  <div class="stat-row" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="stat"><div class="stat-label">현재 각도 θ</div><div class="stat-val" id="anim-theta">0°</div></div>
+    <div class="stat"><div class="stat-label">sin(θ)</div><div class="stat-val" id="anim-sin">0.00</div></div>
+    <div class="stat"><div class="stat-label">cos(θ)</div><div class="stat-val" id="anim-cos">1.00</div></div>
+    <div class="stat"><div class="stat-label">진폭 A</div><div class="stat-val" id="animAV2">1.0</div></div>
+    <div class="stat"><div class="stat-label">주파수 f</div><div class="stat-val" id="animFV2">1.0 Hz</div></div>
+    <div class="stat"><div class="stat-label">위상 φ</div><div class="stat-val" id="animPhV2">0.0 rad</div></div>
+  </div>
+  <div class="ctrl">
+    <label>진폭 A</label>
+    <input type="range" min="0.3" max="1.8" step="0.1" value="1.0" id="animA">
+    <span class="cv" id="animAV">1.0</span>
+  </div>
+  <div class="ctrl">
+    <label>주파수 f (Hz)</label>
+    <input type="range" min="0.5" max="4" step="0.5" value="1" id="animF">
+    <span class="cv" id="animFV">1.0</span>
+  </div>
+  <div class="ctrl">
+    <label>위상 φ (rad)</label>
+    <input type="range" min="0" max="6.28" step="0.1" value="0" id="animPh">
+    <span class="cv" id="animPhV">0.0</span>
+  </div>
+  <div class="ctrl">
+    <label>속도</label>
+    <input type="range" min="0.3" max="3" step="0.1" value="1" id="animSpeed">
+    <span class="cv" id="animSpeedV">1.0</span>
+  </div>
+  <div class="canvases">
+    <div>
+      <div class="canvas-label">단위원 추적</div>
+      <canvas id="c-anim-circle" width="400" height="400" style="height:200px"></canvas>
+    </div>
+    <div>
+      <div class="canvas-label">실시간 파형</div>
+      <canvas id="c-anim-wave" width="840" height="400" style="height:200px"></canvas>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#D85A30"></div>sin(θ) — y값</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#378ADD"></div>cos(θ) — x값</div>
+  </div>
+</div>
+
+</div><!-- /widget -->
+
+<script>
+(function(){
+const DPR = window.devicePixelRatio || 1;
+const C = (id) => document.getElementById(id);
+
+function ctx2(id) {
+  const canvas = C(id);
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  const c = canvas.getContext('2d');
+  c.scale(DPR, DPR);
+  return { c, W, H };
+}
+
+function drawCircleBase(c, W, H, r, angle, color, showRef) {
+  const cx = W/2, cy = H/2;
+  c.clearRect(0,0,W,H);
+  c.strokeStyle = 'rgba(128,128,128,0.2)'; c.lineWidth = 0.5;
+  c.beginPath(); c.moveTo(0,cy); c.lineTo(W,cy); c.stroke();
+  c.beginPath(); c.moveTo(cx,0); c.lineTo(cx,H); c.stroke();
+  if (showRef) {
+    const refR = Math.min(cx,cy) - 12;
+    c.strokeStyle = '#AFA9EC'; c.globalAlpha = 0.35; c.lineWidth = 0.5;
+    c.setLineDash([3,3]);
+    c.beginPath(); c.arc(cx,cy,refR,0,2*Math.PI); c.stroke();
+    c.setLineDash([]); c.globalAlpha = 1;
+  }
+  c.strokeStyle = color; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(cx,cy,r,0,2*Math.PI); c.stroke();
+  const px = cx + r * Math.cos(-angle);
+  const py = cy + r * Math.sin(-angle);
+  c.strokeStyle = color; c.globalAlpha = 0.3; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(cx,cy); c.lineTo(px,cy); c.stroke();
+  c.globalAlpha = 1;
+  c.strokeStyle = '#D85A30'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(px,cy); c.lineTo(px,py); c.stroke();
+  c.strokeStyle = color; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(cx,cy); c.lineTo(px,py); c.stroke();
+  c.fillStyle = color; c.beginPath(); c.arc(px,py,5,0,2*Math.PI); c.fill();
+  c.fillStyle = '#D85A30'; c.beginPath(); c.arc(px,cy,3.5,0,2*Math.PI); c.fill();
+  c.fillStyle = 'rgba(128,128,128,0.7)';
+  c.font = '11px monospace';
+  c.fillText('r=' + r.toFixed(2), cx+4, cy-4);
+}
+
+function drawWaveBase(c, W, H, f, A, refColor, mainColor) {
+  const midY = H/2, scaleY = (H/2)*0.78;
+  c.clearRect(0,0,W,H);
+  c.strokeStyle = 'rgba(128,128,128,0.2)'; c.lineWidth = 0.5;
+  c.setLineDash([4,4]);
+  c.beginPath(); c.moveTo(0,midY); c.lineTo(W,midY); c.stroke();
+  c.setLineDash([]);
+  if (refColor) {
+    c.strokeStyle = refColor; c.globalAlpha = 0.35; c.lineWidth = 1;
+    c.beginPath();
+    for (let x=0;x<=W;x++) { const y=midY-scaleY*Math.sin(2*Math.PI*(x/W)*4); x===0?c.moveTo(x,y):c.lineTo(x,y); }
+    c.stroke(); c.globalAlpha = 1;
+  }
+  c.strokeStyle = mainColor; c.lineWidth = 2;
+  c.beginPath();
+  for (let x=0;x<=W;x++) {
+    const t=(x/W)*4;
+    const y=midY-A*scaleY*Math.sin(2*Math.PI*f*t);
+    x===0?c.moveTo(x,y):c.lineTo(x,y);
+  }
+  c.stroke();
+  c.fillStyle = 'rgba(128,128,128,0.7)'; c.font='10px monospace';
+  c.fillText('A='+A.toFixed(1), 5, midY-A*scaleY-4);
+  c.fillText('-A', 5, midY+A*scaleY+12);
+  const pPx = W/(4*f);
+  if (pPx>28) {
+    c.strokeStyle='#BA7517'; c.lineWidth=0.5; c.setLineDash([3,3]);
+    c.beginPath(); c.moveTo(pPx,0); c.lineTo(pPx,H); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle='#BA7517'; c.fillText('T',pPx+3,12);
+  }
+}
+
+function drawPhase() {
+  const ph = parseFloat(C('phaseR').value);
+  C('phaseV').textContent = ph.toFixed(1);
+  C('phase-stat').textContent = ph.toFixed(1)+' rad';
+  C('phase-deg').textContent = Math.round(ph*180/Math.PI)+'°';
+  C('phase-shift').textContent = (ph/(2*Math.PI)).toFixed(2)+' s';
+  const {c:c1,W:W1,H:H1} = ctx2('c-phase-circle');
+  const cx=W1/2, cy=H1/2, r=Math.min(cx,cy)-12;
+  c1.clearRect(0,0,W1,H1);
+  c1.strokeStyle='rgba(128,128,128,0.2)'; c1.lineWidth=0.5;
+  c1.beginPath(); c1.moveTo(0,cy); c1.lineTo(W1,cy); c1.stroke();
+  c1.beginPath(); c1.moveTo(cx,0); c1.lineTo(cx,H1); c1.stroke();
+  c1.strokeStyle='#AFA9EC'; c1.globalAlpha=0.35; c1.lineWidth=0.5; c1.setLineDash([3,3]);
+  c1.beginPath(); c1.arc(cx,cy,r,0,2*Math.PI); c1.stroke();
+  c1.setLineDash([]); c1.globalAlpha=1;
+  c1.strokeStyle='#BA7517'; c1.lineWidth=1.5;
+  c1.beginPath(); c1.arc(cx,cy,r,0,2*Math.PI); c1.stroke();
+  c1.fillStyle='rgba(128,128,128,0.5)';
+  c1.beginPath(); c1.arc(cx+r, cy, 4, 0, 2*Math.PI); c1.fill();
+  c1.fillStyle='rgba(128,128,128,0.5)'; c1.font='10px monospace';
+  c1.fillText('φ=0', cx+r+4, cy-6);
+  if (ph > 0.05) {
+    c1.strokeStyle='#BA7517'; c1.globalAlpha=0.4; c1.lineWidth=6;
+    c1.beginPath(); c1.arc(cx,cy,r, -ph, 0); c1.stroke();
+    c1.globalAlpha=1;
+  }
+  const px=cx+r*Math.cos(-ph), py=cy+r*Math.sin(-ph);
+  c1.strokeStyle='#BA7517'; c1.lineWidth=1.5;
+  c1.beginPath(); c1.moveTo(cx,cy); c1.lineTo(px,py); c1.stroke();
+  c1.strokeStyle='#D85A30'; c1.lineWidth=1.5;
+  c1.beginPath(); c1.moveTo(px,cy); c1.lineTo(px,py); c1.stroke();
+  c1.fillStyle='#BA7517'; c1.beginPath(); c1.arc(px,py,5,0,2*Math.PI); c1.fill();
+  c1.fillStyle='#D85A30'; c1.beginPath(); c1.arc(px,cy,3.5,0,2*Math.PI); c1.fill();
+  if (ph > 0.15) {
+    c1.fillStyle='#BA7517'; c1.font='11px monospace';
+    const lx=cx+(r*0.45)*Math.cos(-ph/2), ly=cy+(r*0.45)*Math.sin(-ph/2);
+    c1.fillText('φ='+ph.toFixed(1), lx-10, ly);
+  }
+  const {c:c2,W:W2,H:H2} = ctx2('c-phase-wave');
+  const midY=H2/2, scaleY=(H2/2)*0.78;
+  c2.clearRect(0,0,W2,H2);
+  c2.strokeStyle='rgba(128,128,128,0.2)'; c2.lineWidth=0.5; c2.setLineDash([4,4]);
+  c2.beginPath(); c2.moveTo(0,midY); c2.lineTo(W2,midY); c2.stroke();
+  c2.setLineDash([]);
+  c2.strokeStyle='#AFA9EC'; c2.globalAlpha=0.4; c2.lineWidth=1;
+  c2.beginPath();
+  for(let x=0;x<=W2;x++){const t=(x/W2)*4; const y=midY-scaleY*Math.sin(2*Math.PI*t); x===0?c2.moveTo(x,y):c2.lineTo(x,y);}
+  c2.stroke(); c2.globalAlpha=1;
+  c2.strokeStyle='#BA7517'; c2.lineWidth=2;
+  c2.beginPath();
+  for(let x=0;x<=W2;x++){const t=(x/W2)*4; const y=midY-scaleY*Math.sin(2*Math.PI*t+ph); x===0?c2.moveTo(x,y):c2.lineTo(x,y);}
+  c2.stroke();
+  if (ph > 0.05) {
+    const shiftPx = (ph/(2*Math.PI))*(W2/4);
+    c2.strokeStyle='#BA7517'; c2.lineWidth=0.8; c2.globalAlpha=0.6; c2.setLineDash([3,3]);
+    c2.beginPath(); c2.moveTo(0,midY-scaleY*0.3); c2.lineTo(shiftPx,midY-scaleY*0.3); c2.stroke();
+    c2.setLineDash([]); c2.globalAlpha=1;
+    c2.fillStyle='#BA7517'; c2.font='10px monospace';
+    c2.fillText('←'+ph.toFixed(1)+'rad', shiftPx+3, midY-scaleY*0.3-4);
+  }
+  c2.fillStyle='rgba(128,128,128,0.6)'; c2.font='10px monospace';
+  c2.fillText('y = sin(t + '+ph.toFixed(1)+')', 8, 14);
+}
+
+function drawAmp() {
+  const A = parseFloat(C('ampR').value);
+  C('ampV').textContent = A.toFixed(1);
+  C('amp-stat').textContent = A.toFixed(1);
+  C('amp-max').textContent = '+'+A.toFixed(1);
+  C('amp-min').textContent = '−'+A.toFixed(1);
+  const {c:c1,W:W1,H:H1} = ctx2('c-amp-circle');
+  const maxR = Math.min(W1,H1)/2 - 12;
+  drawCircleBase(c1, W1, H1, maxR*(A/1.8), Math.PI/4, '#1D9E75', true);
+  const {c:c2,W:W2,H:H2} = ctx2('c-amp-wave');
+  drawWaveBase(c2, W2, H2, 1, A, '#AFA9EC', '#1D9E75');
+}
+
+function drawFreq() {
+  const f = parseFloat(C('freqR').value);
+  C('freqV').textContent = f.toFixed(1);
+  C('freq-stat').textContent = f.toFixed(1)+' Hz';
+  C('freq-T').textContent = (1/f).toFixed(2)+' s';
+  C('freq-omega').textContent = (2*Math.PI*f).toFixed(2);
+  const {c:c1,W:W1,H:H1} = ctx2('c-freq-circle');
+  const maxR = Math.min(W1,H1)/2 - 12;
+  drawCircleBase(c1, W1, H1, maxR, (Math.PI/4*f)%(2*Math.PI), '#534AB7', true);
+  const {c:c2,W:W2,H:H2} = ctx2('c-freq-wave');
+  drawWaveBase(c2, W2, H2, f, 1, '#AFA9EC', '#534AB7');
+}
+
+let animT=0, raf;
+const hist = new Array(420).fill(0);
+
+function animLoop() {
+  const A   = parseFloat(C('animA').value);
+  const f   = parseFloat(C('animF').value);
+  const ph  = parseFloat(C('animPh').value);
+  const spd = parseFloat(C('animSpeed').value);
+  C('animAV').textContent   = A.toFixed(1);
+  C('animAV2').textContent  = A.toFixed(1);
+  C('animFV').textContent   = f.toFixed(1);
+  C('animFV2').textContent  = f.toFixed(1)+' Hz';
+  C('animPhV').textContent  = ph.toFixed(1);
+  C('animPhV2').textContent = ph.toFixed(1)+' rad';
+  C('animSpeedV').textContent = spd.toFixed(1);
+  animT += 0.02 * spd * f;
+  const th = (animT + ph) % (2*Math.PI);
+  const sv = Math.sin(th), cv = Math.cos(th);
+  C('anim-theta').textContent = Math.round(th*180/Math.PI)+'°';
+  C('anim-sin').textContent   = (A*sv).toFixed(2);
+  C('anim-cos').textContent   = (A*cv).toFixed(2);
+  const {c:c1,W:W1,H:H1} = ctx2('c-anim-circle');
+  const cx=W1/2, cy=H1/2, r=Math.min(cx,cy)-12;
+  c1.clearRect(0,0,W1,H1);
+  c1.strokeStyle='rgba(128,128,128,0.2)'; c1.lineWidth=0.5;
+  c1.beginPath(); c1.moveTo(0,cy); c1.lineTo(W1,cy); c1.stroke();
+  c1.beginPath(); c1.moveTo(cx,0); c1.lineTo(cx,H1); c1.stroke();
+  c1.strokeStyle='rgba(128,128,128,0.25)'; c1.lineWidth=1;
+  c1.beginPath(); c1.arc(cx,cy,r,0,2*Math.PI); c1.stroke();
+  if (ph > 0.05) {
+    const phX = cx + r*Math.cos(ph), phY = cy - r*Math.sin(ph);
+    c1.strokeStyle='#BA7517'; c1.lineWidth=0.8; c1.globalAlpha=0.5; c1.setLineDash([3,3]);
+    c1.beginPath(); c1.moveTo(cx,cy); c1.lineTo(phX,phY); c1.stroke();
+    c1.setLineDash([]); c1.globalAlpha=1;
+    c1.fillStyle='#BA7517'; c1.font='10px monospace';
+    c1.fillText('φ', phX+4, phY-4);
+  }
+  const px=cx+r*A*cv, py=cy-r*A*sv;
+  c1.strokeStyle='#378ADD'; c1.lineWidth=1; c1.globalAlpha=0.45; c1.setLineDash([3,3]);
+  c1.beginPath(); c1.moveTo(px,cy); c1.lineTo(cx,cy); c1.stroke();
+  c1.setLineDash([]); c1.globalAlpha=1;
+  c1.strokeStyle='#D85A30'; c1.lineWidth=1.5;
+  c1.beginPath(); c1.moveTo(px,py); c1.lineTo(px,cy); c1.stroke();
+  c1.strokeStyle='rgba(100,100,100,0.7)'; c1.lineWidth=1.5;
+  c1.beginPath(); c1.moveTo(cx,cy); c1.lineTo(px,py); c1.stroke();
+  c1.fillStyle='#D85A30'; c1.beginPath(); c1.arc(px,cy,3.5,0,2*Math.PI); c1.fill();
+  c1.fillStyle='#378ADD'; c1.beginPath(); c1.arc(cx,py,3.5,0,2*Math.PI); c1.fill();
+  c1.fillStyle='#1a1a1a'; c1.beginPath(); c1.arc(px,py,5.5,0,2*Math.PI); c1.fill();
+  const {c:c2,W:W2,H:H2} = ctx2('c-anim-wave');
+  const midY=H2/2, scaleY=(H2/2)*0.78;
+  hist.shift(); hist.push(A*sv);
+  c2.clearRect(0,0,W2,H2);
+  c2.strokeStyle='rgba(128,128,128,0.2)'; c2.lineWidth=0.5; c2.setLineDash([4,4]);
+  c2.beginPath(); c2.moveTo(0,midY); c2.lineTo(W2,midY); c2.stroke();
+  c2.setLineDash([]);
+  c2.strokeStyle='#D85A30'; c2.lineWidth=2;
+  c2.beginPath();
+  for(let i=0;i<hist.length;i++){
+    const y=midY-hist[i]*scaleY;
+    i===0?c2.moveTo(i,y):c2.lineTo(i,y);
+  }
+  c2.stroke();
+  c2.strokeStyle='rgba(128,128,128,0.3)'; c2.lineWidth=0.5;
+  c2.beginPath(); c2.moveTo(W2-1,0); c2.lineTo(W2-1,H2); c2.stroke();
+  c2.fillStyle='#D85A30';
+  c2.beginPath(); c2.arc(W2-1, midY-hist[hist.length-1]*scaleY, 5,0,2*Math.PI); c2.fill();
+  c2.fillStyle='rgba(128,128,128,0.6)'; c2.font='10px monospace';
+  const phStr = ph>0.05 ? ' + '+ph.toFixed(1) : '';
+  c2.fillText('y = '+A.toFixed(1)+'·sin(2π·'+f.toFixed(1)+'·t'+phStr+')', 8, 14);
+  raf = requestAnimationFrame(animLoop);
+}
+
+window.switchTab = function(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['amp','freq','phase','anim'][i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  C('panel-'+name).classList.add('active');
+  cancelAnimationFrame(raf);
+  if(name==='amp') setTimeout(drawAmp,10);
+  else if(name==='freq') setTimeout(drawFreq,10);
+  else if(name==='phase') setTimeout(drawPhase,10);
+  else setTimeout(animLoop,10);
+};
+
+window.drawAmp = drawAmp;
+window.drawFreq = drawFreq;
+window.drawPhase = drawPhase;
+
+window.addEventListener('resize', ()=>{
+  const active = document.querySelector('.panel.active');
+  if(!active) return;
+  const id = active.id;
+  cancelAnimationFrame(raf);
+  if(id==='panel-amp') drawAmp();
+  else if(id==='panel-freq') drawFreq();
+  else if(id==='panel-phase') drawPhase();
+  else animLoop();
+});
+
+drawAmp();
+})();
+</script>
+</head>
