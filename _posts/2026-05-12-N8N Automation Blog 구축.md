@@ -9,6 +9,8 @@ slug: "n8n_automation_blog_구축"
 
 블로그 자동화 아키텍쳐 test
 
+src="/assets/image_48877c93-9d76-4acf-935d-7badb5685111.png"
+
 !/assets/n8n_automation_blog_구축_0.png
 
 test embed image 1
