@@ -11,6 +11,8 @@ slug: "n8n_automation_blog_구축"
 
 src="/assets/image_48877c93-9d76-4acf-935d-7badb5685111.png"
 
+/assets/image_48877c93-9d76-4acf-935d-7badb5685111.png
+
 !/assets/n8n_automation_blog_구축_0.png
 
 test embed image 1
