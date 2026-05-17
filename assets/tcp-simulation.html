@@ -1,0 +1,877 @@
+cat > /home/claude/tcp-simulation.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCP Handshake · Full OSI Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --bg:#08111f;--s1:#0d1b2e;--s2:#112040;--s3:#162847;
+  --bd:rgba(96,165,250,.13);--bd2:rgba(96,165,250,.25);
+  --tx:#e2e8f0;--tx2:#7aa0c4;--tx3:#4a7090;
+  --a:#60a5fa;--a2:#34d399;--a3:#fbbf24;--a4:#f87171;--a5:#a78bfa;
+  --l7:#f87171;--l6:#fb923c;--l5:#fbbf24;--l4:#34d399;--l3:#60a5fa;--l2:#a78bfa;--l1:#f472b6;
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--tx);font-family:var(--mono);font-size:12px;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:7px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
+.topbar h1{font-family:var(--sans);font-size:14px;font-weight:800;white-space:nowrap}
+.topbar h1 b{color:var(--a)}
+.ctrl{display:flex;align-items:center;gap:5px}
+.ctrl label{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.ctrl input[type=number]{width:62px;background:var(--s2);border:1px solid var(--bd2);color:var(--tx);font-family:var(--mono);font-size:11px;padding:3px 5px;border-radius:3px}
+.ctrl input[type=range]{width:72px;accent-color:var(--a)}
+.btn{font-family:var(--mono);font-size:11px;font-weight:700;padding:4px 11px;border-radius:3px;cursor:pointer;border:none;transition:all .15s}
+.btn-p{background:var(--a);color:#08111f}.btn-p:hover{background:#93c5fd}
+.btn-s{background:var(--s2);color:var(--tx2);border:1px solid var(--bd)}.btn-s:hover{color:var(--tx);border-color:var(--a)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.phasebar{display:flex;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;overflow-x:auto}
+.ph{flex:1;min-width:72px;padding:5px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:center;color:var(--tx3);border-right:1px solid var(--bd);transition:all .3s;position:relative}
+.ph::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;transition:background .3s}
+.ph.active{color:var(--a)}.ph.active::after{background:var(--a)}
+.ph.done{color:var(--a2)}.ph.done::after{background:var(--a2)}
+.main{flex:1;display:grid;grid-template-columns:1fr 310px;overflow:hidden;min-height:0}
+.left{display:grid;grid-template-rows:200px 1fr;overflow:hidden}
+.net-wrap{position:relative;overflow:hidden;background:var(--bg)}
+#netCanvas{display:block;width:100%;height:100%}
+.mtu-badge{position:absolute;top:6px;right:8px;background:var(--s1);border:1px solid var(--bd2);border-radius:3px;padding:2px 8px;font-size:10px;color:var(--a3)}
+.btabs{display:flex;background:var(--s1);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);flex-shrink:0;overflow-x:auto}
+.btab{padding:5px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;color:var(--tx3);border-right:1px solid var(--bd);transition:all .2s;white-space:nowrap}
+.btab.active{color:var(--a);background:var(--s2)}
+.bpanel{overflow-y:auto;flex:1;padding:8px 10px}
+.bpanel::-webkit-scrollbar{width:3px}
+.bpanel::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.net-table{width:100%;border-collapse:collapse;font-size:10px}
+.net-table th{background:var(--s2);color:var(--tx2);padding:3px 6px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd)}
+.net-table td{padding:3px 6px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--tx)}
+.net-table tr.hl td{background:rgba(96,165,250,.14);color:var(--a)}
+.net-table tr.hl2 td{background:rgba(251,191,36,.12);color:var(--a3)}
+.tbl-sec{margin-bottom:10px}
+.tbl-lbl{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;display:flex;align-items:center;gap:5px}
+.tbl-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.sw-lbl{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.sw-track{position:relative;height:26px;background:var(--s2);border-radius:3px;border:1px solid var(--bd);margin-bottom:8px;overflow:visible}
+.sw-seg{position:absolute;top:0;height:100%;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;transition:all .35s;border-right:1px solid rgba(0,0,0,.3)}
+.sw-win{position:absolute;top:-4px;height:calc(100% + 8px);border:2px solid var(--a);border-radius:3px;pointer-events:none;transition:all .35s}
+.sw-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+.sw-stat{background:var(--s2);border-radius:3px;padding:4px 5px}
+.sw-stat-lbl{font-size:8px;color:var(--tx2);text-transform:uppercase}
+.sw-stat-val{font-size:13px;font-weight:700;color:var(--a)}
+.log-entry{display:flex;gap:6px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03);animation:fi .2s ease}
+@keyframes fi{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
+.log-t{color:var(--tx3);flex-shrink:0;width:40px;font-size:9px}
+.log-tag{font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;flex-shrink:0;align-self:flex-start;text-transform:uppercase}
+.log-msg{flex:1;line-height:1.4;font-size:9px;color:var(--tx2)}
+.right{border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;background:var(--s1)}
+.osi-hdr{padding:7px 10px;border-bottom:1px solid var(--bd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.node-sel{display:flex;gap:3px;flex-wrap:wrap}
+.node-btn{font-size:8px;padding:2px 6px;border-radius:3px;cursor:pointer;border:1px solid var(--bd);background:transparent;color:var(--tx2);font-family:var(--mono);transition:all .15s}
+.node-btn.active{background:var(--a);color:#08111f;border-color:var(--a)}
+.osi-body{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:6px}
+.osi-stack{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.osi-row{display:flex;align-items:stretch;border-radius:3px;border:1px solid transparent;transition:all .25s;overflow:hidden;min-height:26px}
+.osi-row.lit{border-color:currentColor;background:rgba(255,255,255,.04)}
+.osi-row.pulseTx{animation:ptx .5s ease}
+.osi-row.pulseRx{animation:prx .5s ease}
+@keyframes ptx{0%{filter:brightness(2.5)}100%{filter:brightness(1)}}
+@keyframes prx{0%{filter:brightness(2.5) hue-rotate(90deg)}100%{filter:brightness(1)}}
+.osi-lnum{width:14px;display:flex;align-items:center;justify-content:center;font-size:8px;opacity:.5;flex-shrink:0}
+.osi-lname{width:66px;font-size:9px;font-weight:700;display:flex;align-items:center;padding:0 3px;flex-shrink:0}
+.osi-dir{width:18px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.osi-info{font-size:9px;color:var(--tx2);flex:1;padding:0 3px;display:flex;align-items:center}
+.osi-badge{font-size:8px;padding:1px 4px;border-radius:2px;margin:3px 3px 3px 0;flex-shrink:0}
+.encap-area{flex:1;overflow:hidden;display:flex;flex-direction:column;padding-top:5px;min-height:0;border-top:1px solid var(--bd);margin-top:5px}
+.encap-lbl{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;flex-shrink:0;padding:0 2px}
+.encap-frame{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0;padding:0 2px}
+.encap-frame::-webkit-scrollbar{width:3px}
+.encap-frame::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.f-row{animation:fri .3s ease;flex-shrink:0}
+@keyframes fri{from{opacity:0;transform:scaleY(0.5)}to{opacity:1;transform:scaleY(1)}}
+.f-lbl{font-size:8px;color:var(--tx3);margin-bottom:1px}
+.f-blocks{display:flex;gap:1px;align-items:stretch;height:22px}
+.f-blk{border-radius:2px;padding:1px 3px;font-size:7px;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;white-space:nowrap;border:1px solid rgba(255,255,255,.1)}
+.f-blk.hdr{flex-shrink:0;min-width:18px}
+.f-blk.pay{flex:1;background:rgba(255,255,255,.04);color:var(--tx3)}
+.f-blk.active-hdr{animation:hpop .45s ease}
+@keyframes hpop{0%{transform:scaleX(1.3);filter:brightness(2.5)}100%{transform:scaleX(1);filter:brightness(1)}}
+.phy-area{flex-shrink:0;padding:5px 6px;border-top:1px solid var(--bd);background:rgba(0,0,0,.2)}
+.phy-lbl{font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
+.phy-row{display:flex;gap:5px;align-items:center}
+.phy-seg{display:flex;flex-direction:column;align-items:center;gap:2px}
+.phy-seg-lbl{font-size:7px;color:var(--tx3);text-align:center}
+canvas.phy-c{background:var(--bg);border-radius:2px;border:1px solid var(--bd);display:block}
+.phy-arr{font-size:12px;color:var(--tx3);flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>TCP <b>4-Way Handshake</b> · Full OSI</h1>
+  <div class="ctrl"><label>MTU</label><input type="number" id="iMTU" value="1500" min="64" max="9000" step="64"><span style="font-size:9px;color:var(--tx3)">B</span></div>
+  <div class="ctrl"><label>Win</label><input type="number" id="iWin" value="4" min="1" max="16"></div>
+  <div class="ctrl"><label>Data</label><input type="number" id="iData" value="3000" min="500" max="20000" step="500"><span style="font-size:9px;color:var(--tx3)">B</span></div>
+  <div class="ctrl"><label>Speed</label><input type="range" id="iSpeed" min="0.5" max="5" step="0.1" value="1"><span id="spdLbl" style="font-size:10px;color:var(--a);width:24px">1x</span></div>
+  <button class="btn btn-p" id="btnStart" onclick="startSim()">▶ START</button>
+  <button class="btn btn-s" onclick="resetSim()">↺ RESET</button>
+</div>
+
+<div class="phasebar">
+  <div class="ph" id="ph0">① SYN</div>
+  <div class="ph" id="ph1">② SYN-ACK</div>
+  <div class="ph" id="ph2">③ ACK</div>
+  <div class="ph" id="ph3">④ Data</div>
+  <div class="ph" id="ph4">⑤ FIN</div>
+  <div class="ph" id="ph5">⑥ FIN-ACK</div>
+  <div class="ph" id="ph6">⑦ ACK</div>
+  <div class="ph" id="ph7">⑧ Closed</div>
+</div>
+
+<div class="main">
+  <div class="left">
+    <div class="net-wrap">
+      <canvas id="netCanvas"></canvas>
+      <div class="mtu-badge">MTU <b id="mtuDisp">1500</b>B</div>
+    </div>
+    <div style="display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0">
+      <div class="btabs">
+        <div class="btab active" onclick="swBTab(this,'sw')">Sliding Window</div>
+        <div class="btab" onclick="swBTab(this,'ip')">IP Table</div>
+        <div class="btab" onclick="swBTab(this,'nat')">NAT Table</div>
+        <div class="btab" onclick="swBTab(this,'mac')">MAC Table</div>
+        <div class="btab" onclick="swBTab(this,'log')">Event Log</div>
+      </div>
+      <div class="bpanel" id="bpanel"></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="osi-hdr">
+      <span>OSI · Encapsulation</span>
+      <div class="node-sel" id="nodeSel"></div>
+    </div>
+    <div class="osi-body">
+      <div class="osi-stack" id="osiStack"></div>
+      <div class="encap-area">
+        <div class="encap-lbl" id="encapLbl">Packet Frame</div>
+        <div class="encap-frame" id="encapFrame"></div>
+      </div>
+      <div class="phy-area">
+        <div class="phy-lbl">L1 Physical · Digital ⇌ Analog Signal</div>
+        <div class="phy-row">
+          <div class="phy-seg"><canvas class="phy-c" id="phyDig" width="82" height="32"></canvas><div class="phy-seg-lbl">Digital (Tx)</div></div>
+          <span class="phy-arr">→</span>
+          <div class="phy-seg"><canvas class="phy-c" id="phyAna" width="82" height="32"></canvas><div class="phy-seg-lbl">Analog (AM)</div></div>
+          <span class="phy-arr">→</span>
+          <div class="phy-seg"><canvas class="phy-c" id="phyDec" width="82" height="32"></canvas><div class="phy-seg-lbl">Decoded (Rx)</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════
+// CONSTANTS
+// ═══════════════════════════
+const LC={7:'#f87171',6:'#fb923c',5:'#fbbf24',4:'#34d399',3:'#60a5fa',2:'#a78bfa',1:'#f472b6'};
+const HDR={7:'HTTP',6:'TLS',5:'SES',4:'TCP',3:'IP',2:'ETH',1:'BIT'};
+const HSIZE={7:12,6:6,5:4,4:20,3:20,2:14,1:8}; // visual px width
+
+const DEF={
+  client: {label:'CLIENT', color:'#60a5fa',icon:'💻',ip:'192.168.1.10',mac:'AA:BB:CC:DD:01',
+    layers:[{n:7,name:'Application',pdu:'Data',proto:'HTTP'},{n:6,name:'Presentation',pdu:'Data',proto:'TLS'},
+            {n:5,name:'Session',pdu:'Data',proto:'NetBIOS'},{n:4,name:'Transport',pdu:'Segment',proto:'TCP'},
+            {n:3,name:'Network',pdu:'Packet',proto:'IP'},{n:2,name:'Data Link',pdu:'Frame',proto:'Ethernet'},
+            {n:1,name:'Physical',pdu:'Bits',proto:'802.3'}]},
+  routerA:{label:'ROUTER A',color:'#fbbf24',icon:'⬡', ip:'10.0.0.1',mac:'AA:BB:CC:DD:AA',
+    layers:[{n:3,name:'Network',pdu:'Packet',proto:'IP/Routing'},{n:2,name:'Data Link',pdu:'Frame',proto:'Ethernet'},{n:1,name:'Physical',pdu:'Bits',proto:'802.3'}]},
+  routerB:{label:'ROUTER B',color:'#fbbf24',icon:'⬡', ip:'10.0.0.2',mac:'BB:BB:CC:DD:BB',
+    layers:[{n:3,name:'Network',pdu:'Packet',proto:'IP/Routing'},{n:2,name:'Data Link',pdu:'Frame',proto:'Ethernet'},{n:1,name:'Physical',pdu:'Bits',proto:'802.3'}]},
+  server: {label:'SERVER', color:'#34d399',icon:'🖥', ip:'10.1.0.10',mac:'CC:BB:CC:DD:02',
+    layers:[{n:7,name:'Application',pdu:'Data',proto:'HTTP'},{n:6,name:'Presentation',pdu:'Data',proto:'TLS'},
+            {n:5,name:'Session',pdu:'Data',proto:'NetBIOS'},{n:4,name:'Transport',pdu:'Segment',proto:'TCP'},
+            {n:3,name:'Network',pdu:'Packet',proto:'IP'},{n:2,name:'Data Link',pdu:'Frame',proto:'Ethernet'},
+            {n:1,name:'Physical',pdu:'Bits',proto:'802.3'}]},
+};
+
+// ═══════════════════════════
+// STATE
+// ═══════════════════════════
+let S={running:false,speed:1,time:0};
+let nodes={};
+let pkts=[];
+let raf=null, lastTs=0;
+let selNode='client';
+let activeL=0;
+let curBTab='sw';
+let swSt={total:0,sent:0,acked:0,win:4};
+let hlIp={A:-1,B:-1}, hlNat={A:-1,B:-1}, hlMac={A:-1,B:-1};
+let natTbl={A:[],B:[]};
+let ipTbl={
+  A:[{d:'192.168.1.0/24',g:'—',i:'eth0',m:1},{d:'10.0.0.0/30',g:'—',i:'eth1',m:1},{d:'10.1.0.0/24',g:'10.0.0.2',i:'eth1',m:2},{d:'0.0.0.0/0',g:'10.0.0.2',i:'eth1',m:100}],
+  B:[{d:'10.1.0.0/24',g:'—',i:'eth1',m:1},{d:'10.0.0.0/30',g:'—',i:'eth0',m:1},{d:'192.168.1.0/24',g:'10.0.0.1',i:'eth0',m:2},{d:'0.0.0.0/0',g:'10.0.0.1',i:'eth0',m:100}],
+};
+let macTbl={
+  A:[{mac:'AA:BB:CC:DD:01',port:'eth0',vlan:1,age:0},{mac:'BB:BB:CC:DD:BB',port:'eth1',vlan:1,age:0}],
+  B:[{mac:'AA:BB:CC:DD:AA',port:'eth0',vlan:1,age:0},{mac:'CC:BB:CC:DD:02',port:'eth1',vlan:1,age:0}],
+};
+
+// ═══════════════════════════
+// CANVAS
+// ═══════════════════════════
+const cnv=document.getElementById('netCanvas');
+const cx=cnv.getContext('2d');
+const DPR=window.devicePixelRatio||1;
+
+function resizeCnv(){
+  const w=cnv.offsetWidth,h=cnv.offsetHeight;
+  cnv.width=w*DPR; cnv.height=h*DPR; cx.scale(DPR,DPR);
+  const nm=['client','routerA','routerB','server'];
+  const xs=[.09,.35,.65,.91];
+  nm.forEach((k,i)=>{nodes[k]={...DEF[k],x:w*xs[i],y:h*.5}});
+  redraw();
+}
+window.addEventListener('resize',resizeCnv);
+
+function redraw(){
+  const w=cnv.offsetWidth,h=cnv.offsetHeight;
+  cx.clearRect(0,0,w,h);
+  cx.strokeStyle='rgba(96,165,250,.03)'; cx.lineWidth=1;
+  for(let x=0;x<w;x+=34){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,h);cx.stroke()}
+  for(let y=0;y<h;y+=34){cx.beginPath();cx.moveTo(0,y);cx.lineTo(w,y);cx.stroke()}
+  const ord=['client','routerA','routerB','server'];
+  const lbl=['LAN','WAN','LAN'];
+  for(let i=0;i<3;i++){
+    const a=nodes[ord[i]],b=nodes[ord[i+1]];
+    cx.strokeStyle='rgba(96,165,250,.15)'; cx.lineWidth=1.5; cx.setLineDash([5,4]);
+    cx.beginPath(); cx.moveTo(a.x,a.y); cx.lineTo(b.x,b.y); cx.stroke(); cx.setLineDash([]);
+    cx.fillStyle='rgba(96,165,250,.3)'; cx.font='8px JetBrains Mono';
+    cx.textAlign='center'; cx.fillText(lbl[i],(a.x+b.x)/2,(a.y+b.y)/2-14);
+  }
+  ord.forEach(k=>drawNode(nodes[k],k===selNode));
+  pkts.forEach(p=>{if(p.vis)drawPkt(p)});
+}
+
+function drawNode(n,sel){
+  const r=26;
+  const g=cx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*2);
+  g.addColorStop(0,n.color+'2a'); g.addColorStop(1,'transparent');
+  cx.fillStyle=g; cx.beginPath(); cx.arc(n.x,n.y,r*2,0,Math.PI*2); cx.fill();
+  cx.strokeStyle=sel?n.color:'rgba(96,165,250,.25)'; cx.lineWidth=sel?2:1;
+  cx.fillStyle='#0d1b2e'; cx.beginPath(); cx.arc(n.x,n.y,r,0,Math.PI*2); cx.fill(); cx.stroke();
+  cx.font='13px serif'; cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText(n.icon,n.x,n.y);
+  cx.font='bold 7px JetBrains Mono'; cx.fillStyle=n.color; cx.textBaseline='top';
+  cx.fillText(n.label,n.x,n.y+r+3);
+  cx.font='7px JetBrains Mono'; cx.fillStyle='rgba(96,165,250,.45)';
+  cx.fillText(n.ip.split('/')[0],n.x,n.y+r+11);
+  n.layers.forEach((l,i)=>{
+    const ly=n.y-r-4-(n.layers.length-i)*8;
+    const isAct=l.n===activeL && Object.keys(nodes).find(k=>nodes[k]===n)===selNode;
+    cx.fillStyle=LC[l.n]+(isAct?'99':'1a');
+    cx.strokeStyle=LC[l.n]+(isAct?'dd':'40');
+    cx.lineWidth=isAct?1:.5;
+    cx.beginPath(); cx.roundRect(n.x-14,ly,28,7,1); cx.fill(); cx.stroke();
+    cx.fillStyle=LC[l.n]+(isAct?'':'88');
+    cx.font=(isAct?'bold ':'')+'5px JetBrains Mono';
+    cx.textAlign='center'; cx.textBaseline='middle';
+    cx.fillText('L'+l.n,n.x,ly+3.5);
+  });
+}
+
+function drawPkt(p){
+  const pw=Math.min(52,16+(p.sz||80)/90),ph=16;
+  cx.shadowColor=p.color; cx.shadowBlur=8;
+  for(let i=(p.enc||1)-1;i>=0;i--){
+    const o=i*1.2;
+    cx.fillStyle=LC[Math.min(i+1,7)]+(i===0?'bb':'28');
+    cx.strokeStyle=LC[Math.min(i+1,7)]+(i===0?'bb':'44');
+    cx.lineWidth=.5;
+    cx.beginPath(); cx.roundRect(p.x-pw/2-o,p.y-ph/2-o,pw+o*2,ph+o*2,2); cx.fill(); cx.stroke();
+  }
+  cx.shadowBlur=0;
+  cx.fillStyle='#fff'; cx.font='bold 7px JetBrains Mono';
+  cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillText(p.lbl||'PKT',p.x,p.y);
+  if(p.seq!=null){
+    cx.fillStyle='rgba(255,255,255,.45)'; cx.font='6px JetBrains Mono';
+    cx.fillText('#'+p.seq,p.x,p.y+ph/2+6);
+  }
+}
+
+// ═══════════════════════════
+// ANIMATION
+// ═══════════════════════════
+function animLoop(ts){
+  const dt=Math.min((ts-lastTs)/1000,.05)*S.speed;
+  lastTs=ts; S.time+=dt;
+  pkts.forEach(p=>{
+    if(!p.active)return;
+    p.prog=Math.min(1,p.prog+dt/p.dur);
+    const t=ease(p.prog);
+    p.x=p.fx+(p.tx-p.fx)*t;
+    p.y=p.fy+(p.ty-p.fy)*t+Math.sin(p.prog*Math.PI)*(p.arc||0);
+    if(p.prog>=1){p.active=false;p.vis=false;if(p.cb)p.cb()}
+  });
+  redraw();
+  if(S.running) raf=requestAnimationFrame(animLoop);
+}
+function ease(t){return t<.5?2*t*t:-1+(4-2*t)*t}
+
+let pkId=0;
+function sendPkt(fk,tk,o={}){
+  return new Promise(res=>{
+    const f=nodes[fk],t=nodes[tk];
+    pkts.push({id:pkId++,active:true,vis:true,fx:f.x,fy:f.y,tx:t.x,ty:t.y,x:f.x,y:f.y,
+      prog:0,dur:o.dur||.9,color:o.color||'#60a5fa',lbl:o.lbl||'PKT',
+      sz:o.sz||80,seq:o.seq,enc:o.enc||4,arc:(Math.random()-.5)*24,cb:()=>{if(o.cb)o.cb();res()}});
+  });
+}
+
+// ═══════════════════════════
+// OSI PANEL
+// ═══════════════════════════
+function buildNodeSel(){
+  const el=document.getElementById('nodeSel'); el.innerHTML='';
+  Object.entries(DEF).forEach(([k,d])=>{
+    const b=document.createElement('button');
+    b.className='node-btn'+(k===selNode?' active':'');
+    b.textContent=d.label;
+    b.onclick=()=>{selNode=k;buildNodeSel();buildOSIStack();redraw()};
+    el.appendChild(b);
+  });
+}
+
+function buildOSIStack(){
+  const el=document.getElementById('osiStack'); el.innerHTML='';
+  DEF[selNode].layers.forEach(l=>{
+    const row=document.createElement('div');
+    row.className='osi-row'; row.id='osi-r'+l.n; row.style.color=LC[l.n];
+    row.innerHTML=`<span class="osi-lnum">${l.n}</span>
+      <span class="osi-lname" style="color:${LC[l.n]}">${l.name}</span>
+      <span class="osi-dir" id="od${l.n}"></span>
+      <span class="osi-info">${l.pdu} · ${l.proto}</span>
+      <span class="osi-badge" id="ob${l.n}"></span>`;
+    el.appendChild(row);
+  });
+}
+
+async function osiEv(nk,mode,larr){
+  // mode: 'encap'|'decap'
+  if(nk!==selNode) return;
+  DEF[nk].layers.forEach(l=>{
+    const r=document.getElementById('osi-r'+l.n);
+    const b=document.getElementById('ob'+l.n);
+    const d=document.getElementById('od'+l.n);
+    if(r){r.classList.remove('lit','pulseTx','pulseRx');r.style.background=''}
+    if(b){b.style.background='';b.textContent=''}
+    if(d){d.textContent=''}
+  });
+  for(let i=0;i<larr.length;i++){
+    const ln=larr[i];
+    activeL=ln;
+    const r=document.getElementById('osi-r'+ln);
+    const b=document.getElementById('ob'+ln);
+    const d=document.getElementById('od'+ln);
+    if(r){
+      r.classList.add('lit',mode==='encap'?'pulseTx':'pulseRx');
+      r.style.background=LC[ln]+'16';
+    }
+    if(b){b.style.background=LC[ln]+'30';b.style.color=LC[ln];b.textContent=mode==='encap'?'+HDR':'-HDR'}
+    if(d){d.textContent=mode==='encap'?'↓':'↑'}
+    updateEncapFrame(nk,mode,i+1,larr.length,larr);
+    if(ln===1) animPhy();
+    await slp(230);
+  }
+  activeL=0; redraw();
+}
+
+// ═══════════════════════════
+// ENCAP FRAME VISUALIZER
+// ═══════════════════════════
+function updateEncapFrame(nk,mode,step,total,larr){
+  const frame=document.getElementById('encapFrame');
+  const lbl=document.getElementById('encapLbl');
+  lbl.textContent=mode==='encap'?`Encapsulation ▼ (${step}/${total})`:`Decapsulation ▲ (${step}/${total})`;
+  frame.innerHTML='';
+
+  // Build current frame state
+  // encap: headers added bottom-up (L7 data → add L6 HDR → add L5 HDR ... → add L1)
+  // Show cumulative frame at each step
+  const allLayers=DEF[nk].layers.map(l=>l.n); // top=L7, bottom=L1
+  let activeHdrs=[];
+  if(mode==='encap'){
+    // larr goes L7→L1; after step i, headers L7..larr[i] are added
+    activeHdrs=larr.slice(0,step);
+  } else {
+    // decap goes L1→L7; after step i, headers L1..larr[i] are stripped, remaining are larr[step..]
+    activeHdrs=larr.slice(step);
+  }
+
+  // Draw frame
+  const row=document.createElement('div'); row.className='f-row';
+  const lbEl=document.createElement('div'); lbEl.className='f-lbl';
+  lbEl.textContent=`L${larr[step-1]} ${mode==='encap'?'added →':'stripped ←'}`;
+  row.appendChild(lbEl);
+
+  const blocks=document.createElement('div'); blocks.className='f-blocks';
+
+  // Outermost header first (largest layer num added last in encap = smallest Ln in larr for encap)
+  // For encap: headers in order outermost→innermost = larr[0] is innermost (L7 first), larr[step-1] is outermost added
+  // Visual: show ETH|IP|TCP|TLS|HTTP|PAYLOAD (outermost on left)
+  const sorted=[...activeHdrs].sort((a,b)=>a-b); // L1 first (outermost on left visually wrong)
+  // Actually outermost=L2, innermost=L7: sort ascending means L2 leftmost ✓
+  sorted.forEach((ln,i)=>{
+    const blk=document.createElement('div');
+    blk.className='f-blk hdr'+(ln===larr[step-1]?' active-hdr':'');
+    blk.style.background=LC[ln]+(ln===larr[step-1]?'99':'33');
+    blk.style.color=ln===larr[step-1]?'#000':LC[ln];
+    blk.style.borderColor=LC[ln];
+    blk.style.width=HSIZE[ln]+'px';
+    blk.textContent=HDR[ln];
+    blk.title=`L${ln} Header (${HSIZE[ln]}B)`;
+    blocks.appendChild(blk);
+  });
+
+  const pay=document.createElement('div');
+  pay.className='f-blk pay'; pay.textContent='PAYLOAD';
+  blocks.appendChild(pay);
+  row.appendChild(blocks);
+  frame.appendChild(row);
+
+  // Byte size annotation
+  const ann=document.createElement('div');
+  ann.style.cssText='font-size:7px;color:var(--tx3);padding:1px 0;display:flex;gap:3px;flex-wrap:wrap';
+  sorted.forEach(ln=>{
+    const sp=document.createElement('span');
+    sp.style.color=LC[ln];
+    sp.textContent=HDR[ln]+':'+HSIZE[ln]+'B';
+    ann.appendChild(sp);
+  });
+  const total_hdr=sorted.reduce((s,ln)=>s+HSIZE[ln],0);
+  const sp2=document.createElement('span');
+  sp2.style.color='var(--tx3)';
+  sp2.textContent=`OH:${total_hdr}B`;
+  ann.appendChild(sp2);
+  frame.appendChild(ann);
+}
+
+// ═══════════════════════════
+// PHYSICAL SIGNAL
+// ═══════════════════════════
+function animPhy(){
+  const bits=Array.from({length:10},()=>Math.round(Math.random()));
+  const dc=document.getElementById('phyDig');
+  const ac=document.getElementById('phyAna');
+  const rc=document.getElementById('phyDec');
+  drawDig(dc,bits,'#60a5fa');
+  drawAna(ac,bits);
+  setTimeout(()=>drawDig(rc,bits,'#34d399'),280/S.speed);
+}
+
+function drawDig(c,bits,col){
+  const w=c.width,h=c.height,ctx=c.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#08111f'; ctx.fillRect(0,0,w,h);
+  const bw=w/bits.length;
+  ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.beginPath();
+  let y=bits[0]?h*.22:h*.78; ctx.moveTo(0,y);
+  bits.forEach((b,i)=>{const ny=b?h*.22:h*.78;if(ny!==y){ctx.lineTo(i*bw,ny);y=ny}ctx.lineTo((i+1)*bw,y)});
+  ctx.stroke();
+}
+
+function drawAna(c,bits){
+  const w=c.width,h=c.height,ctx=c.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#08111f'; ctx.fillRect(0,0,w,h);
+  const bw=w/bits.length;
+  ctx.strokeStyle='#fbbf24'; ctx.lineWidth=1.5; ctx.beginPath();
+  let first=true;
+  for(let i=0;i<bits.length;i++){
+    const amp=bits[i]?.38:.12,freq=bits[i]?4:1.5;
+    for(let s=0;s<=16;s++){
+      const t=s/16;
+      const x=(i+t)*bw,y=h/2+Math.sin(t*Math.PI*2*freq)*amp*h;
+      if(first){ctx.moveTo(x,y);first=false}else ctx.lineTo(x,y);
+    }
+  }
+  ctx.stroke();
+}
+
+// ═══════════════════════════
+// TABLES
+// ═══════════════════════════
+function renderBPanel(){
+  const p=document.getElementById('bpanel');
+  if(curBTab==='sw'){p.innerHTML=renderSW()}
+  else if(curBTab==='ip'){p.innerHTML=renderIP()}
+  else if(curBTab==='nat'){p.innerHTML=renderNAT()}
+  else if(curBTab==='mac'){p.innerHTML=renderMAC()}
+  else{p.innerHTML='<div id="logArea"></div>';logEntries.forEach(e=>appendLogDOM(e))}
+}
+
+function renderSW(){
+  const{total,sent,acked,win}=swSt;
+  if(!total) return '<div style="color:var(--tx3);font-size:10px;padding:6px">시뮬레이션 시작 후 표시됩니다.</div>';
+  const pct=100/total;
+  const bg=i=>i<acked?'#34d39966':i<sent?'#60a5fa55':i<acked+win?'#fbbf2430':'rgba(255,255,255,.04)';
+  const fg=i=>i<acked?'#34d399':i<sent?'#60a5fa':i<acked+win?'#fbbf24':'var(--tx3)';
+  let ss='',rs='';
+  for(let i=0;i<total;i++){
+    ss+=`<div class="sw-seg" style="left:${i*pct}%;width:${pct}%;background:${bg(i)};color:${fg(i)}">${i<acked?'✓':i+1}</div>`;
+    rs+=`<div class="sw-seg" style="left:${i*pct}%;width:${pct}%;background:${i<acked?'#34d39955':'rgba(255,255,255,.03)'};color:${i<acked?'#34d399':'var(--tx3)'}">${i<acked?'✓':'—'}</div>`;
+  }
+  const wp=Math.min(win,total-acked)*pct,wl=acked*pct;
+  return `<div class="sw-stats">
+    <div class="sw-stat"><div class="sw-stat-lbl">Total</div><div class="sw-stat-val">${total}</div></div>
+    <div class="sw-stat"><div class="sw-stat-lbl">Sent</div><div class="sw-stat-val" style="color:#60a5fa">${sent}</div></div>
+    <div class="sw-stat"><div class="sw-stat-lbl">ACK'd</div><div class="sw-stat-val" style="color:#34d399">${acked}</div></div>
+    <div class="sw-stat"><div class="sw-stat-lbl">Window</div><div class="sw-stat-val" style="color:#fbbf24">${win}</div></div>
+  </div>
+  <div class="sw-lbl">Sender</div>
+  <div class="sw-track">${ss}<div class="sw-win" style="left:${wl}%;width:${wp}%"></div></div>
+  <div class="sw-lbl">Receiver</div>
+  <div class="sw-track">${rs}</div>
+  <div style="display:flex;gap:8px;margin-top:5px;font-size:8px;flex-wrap:wrap">
+    <span><span style="color:#34d399">■</span> ACK'd</span>
+    <span><span style="color:#60a5fa">■</span> In-flight</span>
+    <span><span style="color:#fbbf24">■</span> Window</span>
+    <span style="color:var(--tx3)">■ Waiting</span>
+  </div>`;
+}
+
+function renderIP(){
+  const mk=(name,rows,hl)=>`<div class="tbl-sec">
+    <div class="tbl-lbl"><div class="tbl-dot" style="background:#60a5fa"></div>${name} IP Table</div>
+    <table class="net-table"><tr><th>Destination</th><th>Gateway</th><th>Iface</th><th>M</th></tr>
+    ${rows.map((r,i)=>`<tr class="${i===hl?'hl':''}" style="${i===hl?'transition:background .3s':''}"><td>${r.d}</td><td>${r.g}</td><td>${r.i}</td><td>${r.m}</td></tr>`).join('')}
+    </table></div>`;
+  return mk('Router A',ipTbl.A,hlIp.A)+mk('Router B',ipTbl.B,hlIp.B);
+}
+
+function renderNAT(){
+  const mk=(name,rows,hl)=>`<div class="tbl-sec">
+    <div class="tbl-lbl"><div class="tbl-dot" style="background:#fbbf24"></div>${name} NAT</div>
+    <table class="net-table"><tr><th>Proto</th><th>Inside Local</th><th>Global</th><th>Outside</th><th>State</th></tr>
+    ${rows.length?rows.map((r,i)=>`<tr class="${i===hl?'hl2':''}"><td>${r.proto}</td><td>${r.loc}</td><td>${r.glob}</td><td>${r.out}</td><td style="color:#34d399">${r.st}</td></tr>`).join(''):'<tr><td colspan="5" style="color:var(--tx3);text-align:center">empty</td></tr>'}
+    </table></div>`;
+  return mk('Router A',natTbl.A,hlNat.A)+mk('Router B',natTbl.B,hlNat.B);
+}
+
+function renderMAC(){
+  const mk=(name,rows,hl)=>`<div class="tbl-sec">
+    <div class="tbl-lbl"><div class="tbl-dot" style="background:#a78bfa"></div>${name} MAC Table</div>
+    <table class="net-table"><tr><th>MAC</th><th>Port</th><th>VLAN</th><th>Age</th></tr>
+    ${rows.map((r,i)=>`<tr class="${i===hl?'hl':''}"><td>${r.mac}</td><td>${r.port}</td><td>${r.vlan}</td><td>${r.age}s</td></tr>`).join('')}
+    </table></div>`;
+  return mk('Router A',macTbl.A,hlMac.A)+mk('Router B',macTbl.B,hlMac.B);
+}
+
+// ═══════════════════════════
+// LOGGING
+// ═══════════════════════════
+const TC={SYN:'#60a5fa',ACK:'#34d399',FIN:'#f87171',DATA:'#fbbf24',OSI:'#a78bfa',NAT:'#fb923c',MAC:'#f472b6',IP:'#60a5fa',WIN:'#fbbf24',SYS:'#7aa0c4'};
+let logEntries=[];
+function addLog(tag,msg){
+  const e={tag,msg,t:S.time.toFixed(1)};
+  logEntries.unshift(e);
+  if(logEntries.length>80)logEntries.pop();
+  if(curBTab==='log'){const a=document.getElementById('logArea');if(a)appendLogDOM(e,a,true)}
+}
+function appendLogDOM(e,area,prepend){
+  area=area||document.getElementById('logArea');
+  if(!area)return;
+  const c=TC[e.tag]||'#7aa0c4';
+  const el=document.createElement('div'); el.className='log-entry';
+  el.innerHTML=`<span class="log-t">${e.t}s</span><span class="log-tag" style="background:${c}22;color:${c}">${e.tag}</span><span class="log-msg">${e.msg}</span>`;
+  if(prepend)area.insertBefore(el,area.firstChild); else area.appendChild(el);
+  while(area.children.length>80)area.removeChild(area.lastChild);
+}
+
+// ═══════════════════════════
+// PHASE
+// ═══════════════════════════
+function setPh(i){
+  for(let j=0;j<8;j++){
+    const el=document.getElementById('ph'+j);
+    el.classList.remove('active','done');
+    if(j<i)el.classList.add('done');
+    if(j===i)el.classList.add('active');
+  }
+}
+
+function slp(ms){return new Promise(r=>setTimeout(r,ms/S.speed))}
+
+function swBTab(el,tab){
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active'); curBTab=tab; renderBPanel();
+}
+
+// ═══════════════════════════
+// SIMULATION
+// ═══════════════════════════
+async function runSim(){
+  const mtu=parseInt(document.getElementById('iMTU').value)||1500;
+  const win=parseInt(document.getElementById('iWin').value)||4;
+  const data=parseInt(document.getElementById('iData').value)||3000;
+  document.getElementById('mtuDisp').textContent=mtu;
+  const tcpH=20,ipH=20,ethH=14,appH=20;
+  const pay=mtu-tcpH-ipH-ethH;
+  const total=Math.ceil(data/pay);
+  swSt={total,sent:0,acked:0,win};
+  natTbl={A:[{proto:'TCP',loc:'192.168.1.10:49152',glob:'10.0.0.1:49152',out:'10.1.0.10:80',st:'SYN_SENT'}],B:[]};
+  if(curBTab==='sw')renderBPanel();
+  if(curBTab==='nat')renderBPanel();
+
+  // Helper: send through routers with OSI events
+  async function txChain(fromK,layers_from,routeHlA,routeHlB,macHlA,macHlB,toK,lbl,col,enc,sz){
+    // Client/Server → RouterA
+    const mid1=fromK==='client'?'routerA':'routerB';
+    const mid2=fromK==='client'?'routerB':'routerA';
+    const routerK1=fromK==='client'?'routerA':'routerB';
+    const routerK2=fromK==='client'?'routerB':'routerA';
+
+    selNode=fromK; buildNodeSel(); buildOSIStack(); redraw();
+    await osiEv(fromK,'encap',layers_from);
+    await sendPkt(fromK,routerK1,{lbl,color:col,dur:.75,enc,sz});
+
+    selNode=routerK1; buildNodeSel(); buildOSIStack(); redraw();
+    await osiEv(routerK1,'decap',[1,2,3]);
+    hlIp.A=routeHlA; hlIp.B=routeHlB;
+    hlMac.A=macHlA; hlMac.B=-1;
+    if(curBTab==='ip')renderBPanel();
+    if(curBTab==='mac')renderBPanel();
+    addLog('IP',`${DEF[routerK1].label}: 라우팅 처리`);
+    addLog('MAC',`${DEF[routerK1].label}: MAC 테이블 조회`);
+    await osiEv(routerK1,'encap',[3,2,1]);
+
+    await sendPkt(routerK1,routerK2,{lbl,color:col,dur:.75,enc:3,sz:sz-appH});
+
+    selNode=routerK2; buildNodeSel(); buildOSIStack(); redraw();
+    await osiEv(routerK2,'decap',[1,2,3]);
+    hlIp.A=routeHlA; hlIp.B=routeHlB;
+    hlMac.A=-1; hlMac.B=macHlB;
+    if(curBTab==='ip')renderBPanel();
+    if(curBTab==='mac')renderBPanel();
+    addLog('IP',`${DEF[routerK2].label}: 라우팅 처리`);
+    await osiEv(routerK2,'encap',[3,2,1]);
+
+    await sendPkt(routerK2,toK,{lbl,color:col,dur:.7,enc:3,sz:sz-appH});
+
+    selNode=toK; buildNodeSel(); buildOSIStack(); redraw();
+    const rx_layers=DEF[toK].layers.map(l=>l.n).reverse(); // L1→L7
+    await osiEv(toK,'decap',rx_layers);
+  }
+
+  // ── ① SYN ──────────────────────
+  setPh(0);
+  addLog('SYN','Client → SYN 생성');
+  await txChain('client',[7,6,5,4,3,2,1],2,2,0,0,'server','SYN','#60a5fa',5,tcpH+ipH+ethH+appH);
+  addLog('SYN','Server: SYN 수신 완료');
+  natTbl.A[0].st='SYN_SENT';
+  if(curBTab==='nat')renderBPanel();
+  await slp(400);
+
+  // ── ② SYN-ACK ──────────────────
+  setPh(1);
+  addLog('SYN','Server → SYN-ACK 생성');
+  selNode='server'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('server','encap',[7,6,5,4,3,2,1]);
+  await sendPkt('server','routerB',{lbl:'SYN\nACK',color:'#34d399',dur:.7,enc:5,sz:tcpH+ipH+ethH+appH});
+
+  selNode='routerB'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('routerB','decap',[1,2,3]);
+  hlIp.A=-1; hlIp.B=2; hlMac.A=-1; hlMac.B=0;
+  if(curBTab==='ip')renderBPanel();
+  addLog('IP','Router B: dst=192.168.1.10 → next-hop=10.0.0.1');
+  addLog('NAT','Router B 경유 → Router A NAT 처리');
+  await osiEv('routerB','encap',[3,2,1]);
+  await sendPkt('routerB','routerA',{lbl:'SYN\nACK',color:'#34d399',dur:.75,enc:3,sz:tcpH+ipH+ethH});
+
+  selNode='routerA'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('routerA','decap',[1,2,3]);
+  hlIp.A=0; hlIp.B=-1; hlMac.A=0; hlMac.B=-1;
+  if(curBTab==='ip')renderBPanel();
+  natTbl.A[0].st='SYN_RCVD';
+  addLog('NAT','Router A: NAT 역변환 → 192.168.1.10:49152');
+  if(curBTab==='nat')renderBPanel();
+  await osiEv('routerA','encap',[3,2,1]);
+  await sendPkt('routerA','client',{lbl:'SYN\nACK',color:'#34d399',dur:.7,enc:3,sz:tcpH+ipH+ethH});
+
+  selNode='client'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('client','decap',[1,2,3,4,5,6,7]);
+  addLog('SYN','Client: SYN-ACK 수신');
+  await slp(400);
+
+  // ── ③ ACK ──────────────────────
+  setPh(2);
+  addLog('ACK','Client → ACK (3-Way Handshake 완료)');
+  await txChain('client',[7,4,3,2,1],2,2,0,0,'server','ACK','#34d399',5,tcpH+ipH+ethH+appH);
+  natTbl.A[0].st='ESTABLISHED';
+  if(curBTab==='nat')renderBPanel();
+  addLog('ACK','TCP ESTABLISHED ✓');
+  await slp(500);
+
+  // ── ④ DATA TRANSFER ────────────
+  setPh(3);
+  addLog('DATA',`전송: ${data}B / ${total}세그 / pay=${pay}B / win=${win}`);
+  if(data>mtu) addLog('IP',`MTU(${mtu}B) 초과 → IP 단편화 ${total}개`);
+
+  let seq=1001, acked=0;
+  while(acked<total){
+    const wend=Math.min(acked+win,total);
+    const burst=[];
+    for(let i=acked;i<wend;i++){
+      swSt.sent=i+1;
+      if(curBTab==='sw')renderBPanel();
+      const segSz=Math.min(pay,data-i*pay);
+      addLog('DATA',`Seg ${i+1}/${total} seq=${seq} ${segSz}B`);
+
+      selNode='client'; buildNodeSel(); buildOSIStack(); redraw();
+      await osiEv('client','encap',[7,4,3,2,1]);
+      hlIp.A=2; hlMac.A=1;
+      if(curBTab==='ip')renderBPanel();
+
+      const p=sendPkt('client','routerA',{lbl:'D'+(i+1),color:'#fbbf24',dur:.5,enc:5,seq:i+1,sz:segSz+tcpH+ipH+ethH});
+      burst.push(p.then(async()=>{
+        selNode='routerA'; buildNodeSel(); buildOSIStack(); redraw();
+        await osiEv('routerA','decap',[1,2,3]);
+        hlIp.A=2; hlMac.A=1;
+        if(curBTab==='ip')renderBPanel();
+        addLog('IP',`Router A: route D${i+1} → 10.0.0.2`);
+        await osiEv('routerA','encap',[3,2,1]);
+        await sendPkt('routerA','routerB',{lbl:'D'+(i+1),color:'#fbbf24',dur:.4,enc:3,seq:i+1});
+
+        selNode='routerB'; buildNodeSel(); buildOSIStack(); redraw();
+        await osiEv('routerB','decap',[1,2,3]);
+        hlIp.B=0; hlMac.B=1;
+        if(curBTab==='ip')renderBPanel();
+        await osiEv('routerB','encap',[3,2,1]);
+        await sendPkt('routerB','server',{lbl:'D'+(i+1),color:'#fbbf24',dur:.4,enc:3,seq:i+1});
+
+        selNode='server'; buildNodeSel(); buildOSIStack(); redraw();
+        await osiEv('server','decap',[1,2,3,4,7]);
+
+        await slp(100);
+        addLog('ACK',`Server → ACK ${i+1}`);
+        selNode='server'; await osiEv('server','encap',[7,4,3,2,1]);
+        await sendPkt('server','routerB',{lbl:'A'+(i+1),color:'#34d399',dur:.4,enc:3});
+        await sendPkt('routerB','routerA',{lbl:'A'+(i+1),color:'#34d399',dur:.4,enc:3});
+        await sendPkt('routerA','client',{lbl:'A'+(i+1),color:'#34d399',dur:.4,enc:3});
+        selNode='client'; buildNodeSel(); buildOSIStack(); redraw();
+        await osiEv('client','decap',[1,2,3,4]);
+
+        acked++; swSt.acked=acked;
+        addLog('WIN',`Window slide → base=${acked+1}`);
+        if(curBTab==='sw')renderBPanel();
+      }));
+      seq+=segSz;
+      await slp(110);
+    }
+    await Promise.all(burst);
+    await slp(180);
+  }
+  addLog('DATA','전송 완료');
+  await slp(500);
+
+  // ── ⑤ FIN ──────────────────────
+  setPh(4);
+  addLog('FIN','Client → FIN');
+  await txChain('client',[7,4,3,2,1],2,2,0,0,'server','FIN','#f87171',5,tcpH+ipH+ethH+appH);
+  await slp(400);
+
+  // ── ⑥ FIN-ACK ──────────────────
+  setPh(5);
+  addLog('ACK','Server → ACK');
+  selNode='server'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('server','encap',[7,4,3,2,1]);
+  await sendPkt('server','routerB',{lbl:'ACK',color:'#34d399',dur:.65,enc:4});
+  await sendPkt('routerB','routerA',{lbl:'ACK',color:'#34d399',dur:.7,enc:3});
+  await sendPkt('routerA','client',{lbl:'ACK',color:'#34d399',dur:.65,enc:3});
+  selNode='client'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('client','decap',[1,2,3,4,5,6,7]);
+  await slp(300);
+
+  addLog('FIN','Server → FIN');
+  setPh(6);
+  selNode='server'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('server','encap',[7,4,3,2,1]);
+  await sendPkt('server','routerB',{lbl:'FIN',color:'#f87171',dur:.65,enc:4});
+  await sendPkt('routerB','routerA',{lbl:'FIN',color:'#f87171',dur:.7,enc:3});
+  await sendPkt('routerA','client',{lbl:'FIN',color:'#f87171',dur:.65,enc:3});
+  selNode='client'; buildNodeSel(); buildOSIStack(); redraw();
+  await osiEv('client','decap',[1,2,3,4,5,6,7]);
+  await slp(400);
+
+  // ── ⑦ Final ACK ────────────────
+  setPh(6);
+  addLog('ACK','Client → Final ACK');
+  await txChain('client',[7,4,3,2,1],2,2,0,0,'server','ACK','#34d399',5,tcpH+ipH+ethH+appH);
+  natTbl.A[0].st='CLOSED';
+  addLog('NAT','Router A: NAT 세션 CLOSED');
+  if(curBTab==='nat')renderBPanel();
+  await slp(400);
+
+  // ── ⑧ Closed ───────────────────
+  setPh(7);
+  addLog('SYS','✅ TCP 4-Way Handshake 완료');
+  S.running=false;
+  cancelAnimationFrame(raf);
+  redraw();
+  document.getElementById('btnStart').disabled=false;
+}
+
+// ═══════════════════════════
+// CONTROLS
+// ═══════════════════════════
+document.getElementById('iSpeed').addEventListener('input',e=>{
+  S.speed=parseFloat(e.target.value);
+  document.getElementById('spdLbl').textContent=S.speed.toFixed(1)+'x';
+});
+
+function startSim(){
+  if(S.running)return;
+  resetSim();
+  document.getElementById('btnStart').disabled=true;
+  S.running=true; lastTs=0;
+  raf=requestAnimationFrame(ts=>{lastTs=ts;animLoop(ts)});
+  runSim();
+}
+
+function resetSim(){
+  S.running=false; S.time=0; cancelAnimationFrame(raf);
+  pkts=[]; activeL=0;
+  swSt={total:0,sent:0,acked:0,win:4};
+  hlIp={A:-1,B:-1}; hlNat={A:-1,B:-1}; hlMac={A:-1,B:-1};
+  natTbl={A:[],B:[]};
+  logEntries=[];
+  for(let i=0;i<8;i++){const el=document.getElementById('ph'+i);if(el)el.classList.remove('active','done')}
+  selNode='client';
+  buildNodeSel(); buildOSIStack();
+  renderBPanel();
+  document.getElementById('encapFrame').innerHTML='';
+  document.getElementById('encapLbl').textContent='Packet Frame';
+  ['phyDig','phyAna','phyDec'].forEach(id=>{
+    const c=document.getElementById(id),ct=c.getContext('2d');
+    ct.fillStyle='#08111f'; ct.fillRect(0,0,c.width,c.height);
+  });
+  document.getElementById('btnStart').disabled=false;
+  redraw();
+}
+
+// ═══════════════════════════
+// BOOT
+// ═══════════════════════════
+resizeCnv();
+buildNodeSel();
+buildOSIStack();
+renderBPanel();
+addLog('SYS','준비 완료 — START 버튼을 눌러 시작하세요.');
+</script>
+</body>
+</html>
+HTMLEOF
+echo "done: $(wc -l < /home/claude/tcp-simulation.html) lines"
