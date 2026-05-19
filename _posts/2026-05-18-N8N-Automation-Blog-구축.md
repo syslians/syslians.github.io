@@ -7,7 +7,7 @@ author: "현제 김_7254"
 slug: "n8n_automation_blog_구축"
 ---
 
-<img class="automate" src="/assets/image_c68bc373-c908-4f1e-b631-943d8514b040.png" width="100%" height="100%">
+<img class="automate" src="/assets/image_c68bc373-c908-4f1e-b631-943d8514b040.png" width="100%" height="800">
 
 
 
