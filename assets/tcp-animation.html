@@ -1,0 +1,899 @@
+
+<h2 class="sr-only">Linux TCP Internal Queue Architecture — Interactive Visualization showing send buffer, write_queue, retransmit_queue, receive_queue, and out_of_order_queue state changes across 5 kernel-level scenarios</h2>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --c-bg: #0a0c10;
+  --c-panel: #0f1318;
+  --c-border: #1e2530;
+  --c-border2: #2a3545;
+  --c-text: #c8d8e8;
+  --c-muted: #5a7088;
+  --c-blue: #38b2ff;
+  --c-blue2: #1a4a6e;
+  --c-orange: #ff8c38;
+  --c-orange2: #5a3010;
+  --c-green: #38e86a;
+  --c-green2: #0f3d20;
+  --c-red: #ff3860;
+  --c-red2: #5a0f20;
+  --c-purple: #c038ff;
+  --c-purple2: #3a0f5a;
+  --c-amber: #ffc038;
+  --c-amber2: #5a3f00;
+  --c-gray2: #1a2030;
+  --c-ack: #38e86a;
+  --font: 'JetBrains Mono', 'Share Tech Mono', monospace;
+}
+
+body { background: var(--c-bg); color: var(--c-text); font-family: var(--font); font-size: 11px; }
+
+#app { width: 100%; min-height: 800px; background: var(--c-bg); padding: 8px; }
+
+/* Top control bar */
+#ctrl {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--c-panel); border: 1px solid var(--c-border2);
+  border-radius: 6px; margin-bottom: 8px; flex-wrap: wrap;
+}
+#ctrl .scenario-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+#ctrl button {
+  background: var(--c-gray2); border: 1px solid var(--c-border2); color: var(--c-muted);
+  padding: 4px 8px; border-radius: 4px; cursor: pointer; font-family: var(--font); font-size: 10px;
+  transition: all .15s;
+}
+#ctrl button:hover { border-color: var(--c-blue); color: var(--c-blue); }
+#ctrl button.active { background: var(--c-blue2); border-color: var(--c-blue); color: var(--c-blue); }
+#ctrl .sep { width: 1px; height: 20px; background: var(--c-border2); margin: 0 4px; }
+#ctrl .transport-btns { display: flex; gap: 4px; }
+#ctrl .speed-wrap { display: flex; align-items: center; gap: 6px; color: var(--c-muted); font-size: 10px; }
+#ctrl input[type=range] { width: 70px; accent-color: var(--c-blue); }
+
+/* Main layout */
+#main { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+
+/* Side panel (client/server) */
+.side {
+  background: var(--c-panel); border: 1px solid var(--c-border);
+  border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.side-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--c-muted); padding-bottom: 4px; border-bottom: 1px solid var(--c-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.side-title .fn-tag {
+  font-size: 9px; color: var(--c-amber); background: var(--c-amber2); 
+  padding: 1px 5px; border-radius: 3px; letter-spacing: 1px; animation: fnPulse 1s ease-in-out infinite;
+}
+@keyframes fnPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Queue block */
+.queue-section { display: flex; flex-direction: column; gap: 3px; }
+.queue-label {
+  font-size: 9px; color: var(--c-muted); letter-spacing: 1px; text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+}
+.queue-label::after { content: ''; flex: 1; height: 1px; background: var(--c-border); }
+.skb-row { display: flex; gap: 3px; min-height: 26px; align-items: center; flex-wrap: wrap; }
+.skb {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2px 6px; border-radius: 4px; border: 1px solid;
+  font-size: 9px; min-width: 72px; position: relative;
+  transition: all .3s ease; cursor: default; line-height: 1.3;
+}
+.skb.entering { animation: skbIn .4s ease; }
+.skb.leaving { animation: skbOut .3s ease forwards; }
+.skb.moving { animation: skbMove .5s ease; }
+@keyframes skbIn { from{opacity:0;transform:translateY(-8px) scale(.9)} to{opacity:1;transform:none} }
+@keyframes skbOut { from{opacity:1;transform:none} to{opacity:0;transform:translateY(8px) scale(.9)} }
+@keyframes skbMove { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+
+.skb.normal  { background: var(--c-blue2); border-color: var(--c-blue); color: var(--c-blue); }
+.skb.retx    { background: var(--c-orange2); border-color: var(--c-orange); color: var(--c-orange); }
+.skb.acked   { background: var(--c-green2); border-color: var(--c-green); color: var(--c-green); }
+.skb.lost    { background: var(--c-red2); border-color: var(--c-red); color: var(--c-red); animation: lostFlash 0.6s ease infinite; }
+.skb.ooo     { background: var(--c-purple2); border-color: var(--c-purple); color: var(--c-purple); }
+.skb.dup     { background: var(--c-amber2); border-color: var(--c-amber); color: var(--c-amber); }
+@keyframes lostFlash { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+.skb .seq { font-size: 8px; font-weight: 700; }
+.skb .flags { font-size: 7px; opacity: .7; margin-top: 1px; }
+.arrow-sep { color: var(--c-border2); font-size: 14px; align-self: center; }
+.empty-queue { color: var(--c-border2); font-size: 9px; padding: 4px 0; }
+
+/* Window bar */
+.window-section { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.win-bar-wrap { position: relative; height: 18px; background: var(--c-gray2); border-radius: 3px; overflow: hidden; }
+.win-bar-fill {
+  position: absolute; top: 0; height: 100%; border-radius: 3px;
+  transition: left .5s ease, width .5s ease;
+}
+.win-bar-fill.snd { background: rgba(56,178,255,.25); border: 1px solid var(--c-blue); }
+.win-bar-fill.rcv { background: rgba(56,232,106,.25); border: 1px solid var(--c-green); }
+.win-ptr {
+  position: absolute; top: 0; height: 100%; width: 2px;
+  transition: left .5s ease;
+}
+.win-ptr.una { background: var(--c-amber); }
+.win-ptr.nxt { background: var(--c-blue); }
+.win-ptr.rcv { background: var(--c-green); }
+.win-ptr-label {
+  position: absolute; font-size: 7px; top: -12px; transform: translateX(-50%);
+  transition: left .5s ease; white-space: nowrap;
+}
+.win-ptr-label.una { color: var(--c-amber); }
+.win-ptr-label.nxt { color: var(--c-blue); }
+.win-ptr-label.rcv { color: var(--c-green); }
+
+/* Stats panel */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.stat-item { display: flex; justify-content: space-between; padding: 2px 4px; background: var(--c-gray2); border-radius: 3px; }
+.stat-key { color: var(--c-muted); font-size: 9px; }
+.stat-val { font-size: 9px; font-weight: 700; transition: color .3s; }
+.stat-val.highlight { animation: statFlash .4s ease; }
+@keyframes statFlash { 0%,100%{color:var(--c-amber)} 50%{color:#fff} }
+
+/* Network area */
+#network {
+  background: var(--c-panel); border: 1px solid var(--c-border);
+  border-radius: 6px; padding: 10px; margin-bottom: 8px;
+  position: relative; height: 90px; overflow: hidden;
+}
+.net-label { font-size: 9px; color: var(--c-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.pkt-container { position: relative; height: 60px; }
+.net-line {
+  position: absolute; top: 50%; left: 20px; right: 20px; height: 1px;
+  background: repeating-linear-gradient(90deg, var(--c-border2) 0, var(--c-border2) 4px, transparent 4px, transparent 10px);
+  transform: translateY(-50%);
+}
+.net-label-c { position: absolute; top: 50%; left: 4px; transform: translateY(-50%); font-size: 9px; color: var(--c-blue); }
+.net-label-s { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); font-size: 9px; color: var(--c-green); }
+
+.net-pkt {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  padding: 2px 5px; border-radius: 3px; font-size: 8px; font-weight: 700;
+  border: 1px solid; white-space: nowrap;
+  transition: left .6s cubic-bezier(.4,0,.2,1);
+}
+.net-pkt.data { background: var(--c-blue2); border-color: var(--c-blue); color: var(--c-blue); }
+.net-pkt.ack  { background: var(--c-green2); border-color: var(--c-green); color: var(--c-green); }
+.net-pkt.retx { background: var(--c-orange2); border-color: var(--c-orange); color: var(--c-orange); }
+.net-pkt.lost { background: var(--c-red2); border-color: var(--c-red); color: var(--c-red); text-decoration: line-through; }
+
+/* OOO tree */
+.ooo-tree { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 28px; }
+.ooo-row { display: flex; gap: 6px; justify-content: center; }
+.ooo-node {
+  display: flex; flex-direction: column; align-items: center; position: relative;
+}
+.ooo-node::before {
+  content: ''; position: absolute; top: -8px; left: 50%; width: 1px; height: 8px;
+  background: var(--c-purple); opacity: .5;
+}
+.ooo-node:first-child::before { display: none; }
+
+/* Event log */
+#log {
+  background: var(--c-panel); border: 1px solid var(--c-border);
+  border-radius: 6px; padding: 8px; max-height: 140px; overflow-y: auto;
+}
+#log::-webkit-scrollbar { width: 4px; }
+#log::-webkit-scrollbar-thumb { background: var(--c-border2); border-radius: 2px; }
+.log-entry { display: flex; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--c-border); font-size: 9px; line-height: 1.5; }
+.log-time { color: var(--c-muted); min-width: 55px; }
+.log-fn { color: var(--c-amber); min-width: 160px; }
+.log-msg { color: var(--c-text); }
+.log-msg.ok { color: var(--c-green); }
+.log-msg.warn { color: var(--c-orange); }
+.log-msg.err { color: var(--c-red); }
+.log-entry.new { animation: logIn .3s ease; }
+@keyframes logIn { from{opacity:0;background:rgba(56,178,255,.08)} to{opacity:1;background:transparent} }
+
+/* Legend */
+#legend { display: flex; gap: 10px; flex-wrap: wrap; padding: 4px 0; margin-bottom: 4px; }
+.leg-item { display: flex; align-items: center; gap: 4px; font-size: 8px; }
+.leg-dot { width: 8px; height: 8px; border-radius: 2px; border: 1px solid; }
+.leg-dot.normal { background: var(--c-blue2); border-color: var(--c-blue); }
+.leg-dot.retx { background: var(--c-orange2); border-color: var(--c-orange); }
+.leg-dot.acked { background: var(--c-green2); border-color: var(--c-green); }
+.leg-dot.lost { background: var(--c-red2); border-color: var(--c-red); }
+.leg-dot.ooo { background: var(--c-purple2); border-color: var(--c-purple); }
+.leg-dot.dup { background: var(--c-amber2); border-color: var(--c-amber); }
+</style>
+
+<div id="app">
+  <!-- Control Panel -->
+  <div id="ctrl">
+    <div class="scenario-btns" id="scenarioBtns"></div>
+    <div class="sep"></div>
+    <div class="transport-btns" id="transportBtns"></div>
+    <div class="sep"></div>
+    <div class="speed-wrap">
+      <span>SPD</span>
+      <input type="range" id="speedSlider" min="0.2" max="3" step="0.2" value="1">
+      <span id="speedVal">1×</span>
+    </div>
+  </div>
+
+  <div id="legend">
+    <div class="leg-item"><div class="leg-dot normal"></div><span style="color:var(--c-blue)">send buf / normal</span></div>
+    <div class="leg-item"><div class="leg-dot retx"></div><span style="color:var(--c-orange)">retransmit</span></div>
+    <div class="leg-item"><div class="leg-dot acked"></div><span style="color:var(--c-green)">ACKed</span></div>
+    <div class="leg-item"><div class="leg-dot lost"></div><span style="color:var(--c-red)">lost</span></div>
+    <div class="leg-item"><div class="leg-dot ooo"></div><span style="color:var(--c-purple)">out-of-order</span></div>
+    <div class="leg-item"><div class="leg-dot dup"></div><span style="color:var(--c-amber)">duplicate</span></div>
+  </div>
+
+  <!-- Client | Server -->
+  <div id="main">
+    <!-- Client -->
+    <div class="side" id="clientPanel">
+      <div class="side-title">
+        CLIENT (SENDER)
+        <span class="fn-tag" id="clientFn" style="display:none"></span>
+      </div>
+
+      <div class="queue-section">
+        <div class="queue-label">send_buffer</div>
+        <div class="skb-row" id="sendBuf"></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">write_queue</div>
+        <div class="skb-row" id="writeQueue"></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">retransmit_queue</div>
+        <div class="skb-row" id="retxQueue"></div>
+      </div>
+
+      <div class="window-section">
+        <div class="queue-label">sequence space (window)</div>
+        <div style="position:relative;padding-top:14px">
+          <div class="win-ptr-label una" id="ptr_una">snd_una</div>
+          <div class="win-ptr-label nxt" id="ptr_nxt">snd_nxt</div>
+          <div class="win-bar-wrap">
+            <div class="win-bar-fill snd" id="winBarSnd"></div>
+            <div class="win-ptr una" id="ptrUna"></div>
+            <div class="win-ptr nxt" id="ptrNxt"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="sndStats"></div>
+    </div>
+
+    <!-- Server -->
+    <div class="side" id="serverPanel">
+      <div class="side-title">
+        SERVER (RECEIVER)
+        <span class="fn-tag" id="serverFn" style="display:none"></span>
+      </div>
+
+      <div class="queue-section">
+        <div class="queue-label">receive_queue</div>
+        <div class="skb-row" id="rcvQueue"></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">out_of_order_queue (rb-tree sorted by seq)</div>
+        <div id="oooQueue"></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">receive_buffer (delivered to app)</div>
+        <div class="skb-row" id="rcvBuf"></div>
+      </div>
+
+      <div class="window-section">
+        <div class="queue-label">sequence space (window)</div>
+        <div style="position:relative;padding-top:14px">
+          <div class="win-ptr-label rcv" id="ptr_rcvnxt">rcv_nxt</div>
+          <div class="win-bar-wrap">
+            <div class="win-bar-fill rcv" id="winBarRcv"></div>
+            <div class="win-ptr rcv" id="ptrRcvNxt"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="rcvStats"></div>
+    </div>
+  </div>
+
+  <!-- Network -->
+  <div id="network">
+    <div class="net-label">NETWORK — tcp_transmit_skb() → ip_queue_xmit() → wire → tcp_rcv_established()</div>
+    <div class="pkt-container" id="netArea">
+      <div class="net-line"></div>
+      <div class="net-label-c">CLIENT</div>
+      <div class="net-label-s">SERVER</div>
+    </div>
+  </div>
+
+  <!-- Event Log -->
+  <div id="log"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = {
+  scenario: 0,
+  step: 0,
+  running: false,
+  speed: 1,
+  timer: null,
+  sendBuf: [],      // skb objects
+  writeQueue: [],
+  retxQueue: [],
+  rcvQueue: [],
+  oooQueue: [],
+  rcvBuf: [],
+  netPkts: [],
+  snd_una: 1000, snd_nxt: 1000, snd_wnd: 4000, snd_cwnd: 4, packets_out: 0, retrans_out: 0,
+  rcv_nxt: 1000, rcv_wnd: 4000,
+  clientFn: '', serverFn: '', logTime: 0
+};
+
+// ── Scenario definitions ───────────────────────────────────────────────────
+const SEGS = [
+  {seq:1000,end:1999,label:'[1000~1999]'},
+  {seq:2000,end:2999,label:'[2000~2999]'},
+  {seq:3000,end:3999,label:'[3000~3999]'}
+];
+
+function mkSkb(seg, type='normal', extra='') {
+  return { id: seg.seq, seq: seg.seq, end: seg.end, label: seg.label, type, flags: extra, anim: 'entering' };
+}
+
+const scenarios = [
+  {
+    name: 'S1: Normal',
+    desc: 'Normal transfer',
+    steps: [
+      // Step 0: app write
+      s => {
+        s.clientFn = 'tcp_sendmsg()';
+        s.sendBuf = SEGS.map(sg => mkSkb(sg,'normal','new'));
+        log('tcp_sendmsg()', 'Application write → send_buffer [1000~3999]');
+      },
+      // Step 1: segmentation → write_queue
+      s => {
+        s.clientFn = 'tcp_write_xmit()';
+        s.writeQueue = SEGS.map(sg => mkSkb(sg,'normal','wq'));
+        s.sendBuf = [];
+        log('tcp_write_xmit()', 'Segmented skbs enqueued to write_queue');
+        log('tcp_write_xmit()', `cwnd=${s.snd_cwnd} rwnd=${s.snd_wnd} → transmit allowed`,'ok');
+      },
+      // Step 2: transmit skb[0] → retx_queue + network
+      s => {
+        s.clientFn = 'tcp_transmit_skb()';
+        const [seg,...rest] = s.writeQueue;
+        s.retxQueue = [mkSkb(SEGS[0],'normal','in-flight')];
+        s.writeQueue = rest;
+        s.snd_nxt = 2000; s.packets_out = 1;
+        addNetPkt(SEGS[0],'data',0,85);
+        log('tcp_transmit_skb()', `Transmit skb ${SEGS[0].label}  snd_nxt→2000`);
+      },
+      // Step 3: transmit skb[1],[2]
+      s => {
+        s.clientFn = 'tcp_transmit_skb()';
+        s.retxQueue = [mkSkb(SEGS[0],'normal','in-flight'), mkSkb(SEGS[1],'normal','in-flight'), mkSkb(SEGS[2],'normal','in-flight')];
+        s.writeQueue = [];
+        s.snd_nxt = 4000; s.packets_out = 3;
+        addNetPkt(SEGS[1],'data',0,85);
+        addNetPkt(SEGS[2],'data',0,85);
+        log('tcp_transmit_skb()', `Transmit ${SEGS[1].label} ${SEGS[2].label}  snd_nxt→4000`);
+      },
+      // Step 4: server receives, ACK=2000
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        s.rcvQueue = [mkSkb(SEGS[0],'acked','seq ok')];
+        s.rcv_nxt = 2000;
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=2000',label:'ACK=2000'},'ack',85,8);
+        log('tcp_rcv_established()', `Received ${SEGS[0].label} → rcv_queue  rcv_nxt→2000`);
+        log('tcp_ack()', 'Send ACK=2000','ok');
+      },
+      // Step 5: client clean rtx, slide window
+      s => {
+        s.clientFn = 'tcp_clean_rtx_queue()';
+        s.retxQueue = [mkSkb(SEGS[1],'normal','in-flight'), mkSkb(SEGS[2],'normal','in-flight')];
+        s.snd_una = 2000; s.packets_out = 2;
+        clearNet();
+        log('tcp_clean_rtx_queue()', `ACK=2000 → remove skb ${SEGS[0].label} from retransmit_queue`);
+        log('tcp_ack()', `snd_una→2000  window slides`,'ok');
+      },
+      // Step 6: all ACKed
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        s.clientFn = 'tcp_clean_rtx_queue()';
+        s.rcvQueue = SEGS.map(sg => mkSkb(sg,'acked','seq ok'));
+        s.rcv_nxt = 4000;
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'acked','ACKed'));
+        s.snd_una = 4000; s.packets_out = 0;
+        addNetPkt({seq:'ACK',end:'=4000',label:'ACK=4000'},'ack',85,8);
+        log('tcp_ack()', `ACK=4000  snd_una=snd_nxt=4000  all data ACKed`,'ok');
+        log('tcp_clean_rtx_queue()', 'retransmit_queue cleared','ok');
+      }
+    ]
+  },
+  {
+    name: 'S2: OOO',
+    desc: 'Out-of-order',
+    steps: [
+      s => {
+        s.clientFn = 'tcp_sendmsg()';
+        s.writeQueue = SEGS.map(sg => mkSkb(sg,'normal','wq'));
+        log('tcp_sendmsg()', 'write_queue: [1000~1999] → [2000~2999] → [3000~3999]');
+      },
+      s => {
+        s.clientFn = 'tcp_transmit_skb()';
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'normal','in-flight'));
+        s.writeQueue = [];
+        s.snd_nxt = 4000; s.packets_out = 3;
+        addNetPkt(SEGS[0],'data',5,90);
+        addNetPkt(SEGS[2],'data',5,90);
+        addNetPkt(SEGS[1],'data',5,90);
+        log('tcp_transmit_skb()', 'Transmit 3 skbs (network reorders: [0],[2],[1])');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        s.rcvQueue = [mkSkb(SEGS[0],'acked','seq ok')];
+        s.rcv_nxt = 2000;
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=2000',label:'ACK=2000'},'ack',85,8);
+        log('tcp_rcv_established()', `${SEGS[0].label} arrived in order → rcv_queue`);
+        log('tcp_ack()', 'Send ACK=2000');
+      },
+      s => {
+        s.serverFn = 'tcp_data_queue_ofo()';
+        s.oooQueue = [mkSkb(SEGS[2],'ooo','ofo')];
+        log('tcp_data_queue_ofo()', `${SEGS[2].label} arrived BUT rcv_nxt=2000 → out_of_order_queue (rb-tree)`, 'warn');
+        log('tcp_data_queue_ofo()', 'rb-tree insert: key=seq=3000');
+        addNetPkt({seq:'ACK',end:'=2000',label:'ACK=2000 (DUPACK)'},'ack',85,8);
+      },
+      s => {
+        s.serverFn = 'tcp_data_queue_ofo()';
+        s.rcvQueue = [mkSkb(SEGS[0],'acked','seq ok'), mkSkb(SEGS[1],'acked','seq ok')];
+        s.oooQueue = [mkSkb(SEGS[2],'ooo','ofo')];
+        s.rcv_nxt = 3000;
+        log('tcp_rcv_established()', `${SEGS[1].label} arrived → rcv_queue  rcv_nxt→3000`);
+        log('tcp_ofo_queue_prune()', 'Check ofo rb-tree: seq=3000 == rcv_nxt?');
+      },
+      s => {
+        s.serverFn = 'tcp_ofo_queue_prune()';
+        s.rcvQueue = SEGS.map(sg => mkSkb(sg,'acked','seq ok'));
+        s.oooQueue = [];
+        s.rcvBuf = SEGS.map(sg => mkSkb(sg,'acked','app'));
+        s.rcv_nxt = 4000;
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=4000',label:'ACK=4000'},'ack',85,8);
+        log('tcp_ofo_queue_prune()', `skb [3000~3999] drained from ofo rb-tree → rcv_queue`,'ok');
+        log('tcp_rcv_established()', 'All in-order  ACK=4000  rcv_nxt→4000','ok');
+      }
+    ]
+  },
+  {
+    name: 'S3: Retx',
+    desc: 'Fast retransmit',
+    steps: [
+      s => {
+        s.clientFn = 'tcp_sendmsg()';
+        s.writeQueue = SEGS.map(sg => mkSkb(sg,'normal','wq'));
+        log('tcp_sendmsg()', 'write_queue ready  [1000~1999][2000~2999][3000~3999]');
+      },
+      s => {
+        s.clientFn = 'tcp_transmit_skb()';
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'normal','in-flight'));
+        s.writeQueue = [];
+        s.snd_nxt = 4000; s.packets_out = 3;
+        addNetPkt(SEGS[0],'data',5,90);
+        addNetPkt({...SEGS[1],label:'[2000~2999] LOST'},'lost',5,90);
+        addNetPkt(SEGS[2],'data',5,90);
+        log('tcp_transmit_skb()', 'Transmit 3 skbs  [2000~2999] dropped in network!','warn');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        s.rcvQueue = [mkSkb(SEGS[0],'acked','seq ok')];
+        s.oooQueue = [mkSkb(SEGS[2],'ooo','ofo')];
+        s.rcv_nxt = 2000;
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=2000',label:'ACK=2000'},'ack',85,8);
+        log('tcp_rcv_established()', `[1000~1999] received → rcv_queue`);
+        log('tcp_data_queue_ofo()', `[3000~3999] OFO (rcv_nxt=2000) → ofo rb-tree`,'warn');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        clearNet();
+        addNetPkt({seq:'DUPACK',end:'=2000',label:'DUPACK ACK=2000 #2'},'ack',85,8);
+        log('tcp_ack()', 'DUPACK #2 received: snd_una=2000  dup_acks=2','warn');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        clearNet();
+        addNetPkt({seq:'DUPACK',end:'=2000',label:'DUPACK ACK=2000 #3'},'ack',85,8);
+        log('tcp_ack()', 'DUPACK #3 received → tcp_enter_loss() → FAST RETRANSMIT!','err');
+      },
+      s => {
+        s.clientFn = 'tcp_retransmit_skb()';
+        s.retxQueue = [mkSkb(SEGS[0],'acked','ACKed'), mkSkb(SEGS[1],'retx','RETX'), mkSkb(SEGS[2],'normal','in-flight')];
+        s.retrans_out = 1;
+        clearNet();
+        addNetPkt({...SEGS[1],label:'[2000~2999] RETX'},'retx',5,90);
+        log('tcp_retransmit_skb()', `Fast retransmit: skb ${SEGS[1].label} re-transmitted`,'warn');
+        log('tcp_retransmit_skb()', `retrans_out++  retx_queue: ${SEGS[1].label} marked RETX`);
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        s.clientFn = 'tcp_clean_rtx_queue()';
+        s.rcvQueue = SEGS.map(sg => mkSkb(sg,'acked','seq ok'));
+        s.oooQueue = [];
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'acked','ACKed'));
+        s.rcvBuf = SEGS.map(sg => mkSkb(sg,'acked','app'));
+        s.snd_una = 4000; s.rcv_nxt = 4000; s.packets_out = 0; s.retrans_out = 0;
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=4000',label:'ACK=4000'},'ack',85,8);
+        log('tcp_clean_rtx_queue()', 'ACK=4000 → all skbs removed from retransmit_queue','ok');
+      }
+    ]
+  },
+  {
+    name: 'S4: DupSeg',
+    desc: 'Duplicate segment',
+    steps: [
+      s => {
+        s.clientFn = 'tcp_sendmsg()';
+        s.writeQueue = SEGS.map(sg => mkSkb(sg,'normal','wq'));
+        s.rcvQueue = SEGS.map(sg => mkSkb(sg,'acked','delivered'));
+        s.rcv_nxt = 4000;
+        log('tcp_sendmsg()', 'Normal transfer completed  rcv_nxt=4000');
+      },
+      s => {
+        s.clientFn = 'tcp_transmit_skb()';
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'acked','ACKed'));
+        s.snd_una = 4000; s.snd_nxt = 4000;
+        addNetPkt({...SEGS[2],label:'[3000~3999] DUP'},'retx',5,90);
+        log('tcp_transmit_skb()', '[3000~3999] retransmitted again (spurious retx or network dup)','warn');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        clearNet();
+        addNetPkt(SEGS[2],'data',90,8);
+        log('tcp_rcv_established()', `DUP segment [3000~3999] arrived  rcv_nxt=4000`,'warn');
+        log('tcp_rcv_established()', `seq(3000) < rcv_nxt(4000) → DUPLICATE detected!`,'err');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        const dupSkb = {...mkSkb(SEGS[2],'dup','DUP'), flags:'payload discard'};
+        s.rcvQueue = [...SEGS.map(sg => mkSkb(sg,'acked','delivered')), dupSkb];
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=4000',label:'ACK=4000 (dup discard)'},'ack',85,8);
+        log('tcp_rcv_established()', 'payload DISCARDED — seq already below rcv_nxt','err');
+        log('tcp_send_ack()', 'Re-send ACK=4000 to resolve any sender confusion','ok');
+      }
+    ]
+  },
+  {
+    name: 'S5: WinFull',
+    desc: 'Receiver window=0',
+    steps: [
+      s => {
+        s.clientFn = 'tcp_sendmsg()';
+        s.writeQueue = SEGS.map(sg => mkSkb(sg,'normal','wq'));
+        s.rcv_wnd = 3000; s.snd_wnd = 3000;
+        log('tcp_sendmsg()', 'write_queue ready  rcv_wnd=3000');
+      },
+      s => {
+        s.clientFn = 'tcp_transmit_skb()';
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'normal','in-flight'));
+        s.writeQueue = [];
+        s.snd_nxt = 4000; s.packets_out = 3;
+        s.rcvQueue = SEGS.map(sg => mkSkb(sg,'acked','buf full'));
+        s.rcv_nxt = 4000; s.rcv_wnd = 0;
+        addNetPkt(SEGS[0],'data',5,90);
+        addNetPkt(SEGS[1],'data',5,90);
+        addNetPkt(SEGS[2],'data',5,90);
+        log('tcp_transmit_skb()', '3 skbs transmitted  receive_buffer FULL!','warn');
+      },
+      s => {
+        s.serverFn = 'tcp_send_ack()';
+        s.clientFn = '';
+        clearNet();
+        addNetPkt({seq:'ACK',end:'=4000 WIN=0',label:'ACK=4000 WIN=0'},'ack',85,8);
+        log('tcp_send_ack()', 'rcv_wnd=0 → advertise Window=0!','err');
+        log('tcp_rcv_established()', 'Zero-window advertisement sent to sender');
+      },
+      s => {
+        s.clientFn = 'tcp_write_xmit()';
+        s.retxQueue = SEGS.map(sg => mkSkb(sg,'acked','ACKed, HOLD'));
+        s.snd_una = 4000; s.packets_out = 0; s.snd_wnd = 0;
+        clearNet();
+        log('tcp_write_xmit()', `rwnd=0 → SENDER STOPPED: snd_wnd=0 nothing can be sent`,'err');
+        log('tcp_write_xmit()', 'probe timer started (tcp_send_probe0)');
+      },
+      s => {
+        s.serverFn = 'tcp_rcv_established()';
+        s.rcvQueue = [];
+        s.rcvBuf = SEGS.map(sg => mkSkb(sg,'acked','app read'));
+        s.rcv_wnd = 4000; s.snd_wnd = 4000;
+        addNetPkt({seq:'ACK',end:'=4000 WIN=4000',label:'WIN UPDATE=4000'},'ack',85,8);
+        log('tcp_rcv_established()', 'Application read data → receive_buffer freed','ok');
+        log('tcp_send_ack()', 'Window update: WIN=4000 → sender can resume','ok');
+      }
+    ]
+  }
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+let netPktId = 0;
+function addNetPkt(seg, type, startPct, endPct) {
+  const id = ++netPktId;
+  const area = $('netArea');
+  const div = document.createElement('div');
+  div.className = `net-pkt ${type}`;
+  div.id = `npkt-${id}`;
+  div.style.left = startPct + '%';
+  div.textContent = seg.label || `[${seg.seq}~${seg.end}]`;
+  area.appendChild(div);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { div.style.left = endPct + '%'; });
+  });
+  state.netPkts.push(id);
+  return id;
+}
+function clearNet() {
+  $('netArea').querySelectorAll('.net-pkt').forEach(el => el.remove());
+  state.netPkts = [];
+}
+
+let logSeq = 0;
+function log(fn, msg, cls='') {
+  const container = $('log');
+  const t = (++state.logTime * 150 / 1000).toFixed(3);
+  const entry = document.createElement('div');
+  entry.className = 'log-entry new';
+  entry.innerHTML = `<span class="log-time">[${t}]</span><span class="log-fn">${fn}</span><span class="log-msg ${cls}">${msg}</span>`;
+  container.appendChild(entry);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderSkbRow(containerId, skbs) {
+  const el = $(containerId);
+  el.innerHTML = '';
+  if (!skbs.length) {
+    el.innerHTML = '<span class="empty-queue">[ empty ]</span>';
+    return;
+  }
+  skbs.forEach((skb, i) => {
+    if (i > 0) {
+      const arr = document.createElement('span');
+      arr.className = 'arrow-sep'; arr.textContent = '→';
+      el.appendChild(arr);
+    }
+    const d = document.createElement('div');
+    d.className = `skb ${skb.type} ${skb.anim || ''}`;
+    d.innerHTML = `<span class="seq">${skb.label}</span>${skb.flags ? `<span class="flags">${skb.flags}</span>` : ''}`;
+    el.appendChild(d);
+    // Clear anim class after
+    if (skb.anim) setTimeout(() => { skb.anim = ''; d.className = `skb ${skb.type}`; }, 500);
+  });
+}
+
+function renderOOO(skbs) {
+  const el = $('oooQueue');
+  if (!skbs.length) {
+    el.innerHTML = '<div class="skb-row"><span class="empty-queue">[ rb-tree: empty ]</span></div>';
+    return;
+  }
+  // Render as tree (up to 3 nodes: root + children)
+  const sorted = [...skbs].sort((a,b) => a.seq - b.seq);
+  const mid = Math.floor(sorted.length / 2);
+  el.innerHTML = '';
+
+  const tree = document.createElement('div');
+  tree.className = 'ooo-tree';
+
+  if (sorted.length === 1) {
+    const row = document.createElement('div');
+    row.className = 'ooo-row';
+    const node = document.createElement('div');
+    node.className = 'ooo-node';
+    node.innerHTML = `<div class="skb ooo entering"><span class="seq">${sorted[0].label}</span><span class="flags">root</span></div>`;
+    row.appendChild(node); tree.appendChild(row);
+  } else {
+    // Root row
+    const rootRow = document.createElement('div');
+    rootRow.className = 'ooo-row';
+    const rootNode = document.createElement('div');
+    rootNode.className = 'ooo-node';
+    rootNode.innerHTML = `<div class="skb ooo"><span class="seq">${sorted[mid].label}</span><span class="flags">root</span></div>`;
+    rootRow.appendChild(rootNode);
+    tree.appendChild(rootRow);
+
+    // Children row
+    const childRow = document.createElement('div');
+    childRow.className = 'ooo-row';
+    sorted.forEach((skb, i) => {
+      if (i === mid) return;
+      const node = document.createElement('div');
+      node.className = 'ooo-node';
+      node.innerHTML = `<div class="skb ooo entering"><span class="seq">${skb.label}</span><span class="flags">${i < mid ? 'left' : 'right'}</span></div>`;
+      childRow.appendChild(node);
+    });
+    tree.appendChild(childRow);
+  }
+  el.appendChild(tree);
+}
+
+function renderWindow(s) {
+  const total = 6000;
+  const barW = 100;
+  const unaP = ((s.snd_una - 1000) / total * barW).toFixed(1);
+  const nxtP = ((s.snd_nxt - 1000) / total * barW).toFixed(1);
+  const wndW = (s.snd_wnd / total * barW).toFixed(1);
+
+  $('ptrUna').style.left = unaP + '%';
+  $('ptrNxt').style.left = nxtP + '%';
+  $('ptr_una').style.left = unaP + '%';
+  $('ptr_nxt').style.left = nxtP + '%';
+  $('winBarSnd').style.left = unaP + '%';
+  $('winBarSnd').style.width = wndW + '%';
+
+  const rcvP = ((s.rcv_nxt - 1000) / total * barW).toFixed(1);
+  const rwndW = (s.rcv_wnd / total * barW).toFixed(1);
+  $('ptrRcvNxt').style.left = rcvP + '%';
+  $('ptr_rcvnxt').style.left = rcvP + '%';
+  $('winBarRcv').style.left = rcvP + '%';
+  $('winBarRcv').style.width = rwndW + '%';
+}
+
+function renderStats(s) {
+  const sndItems = [
+    ['snd_una', s.snd_una], ['snd_nxt', s.snd_nxt],
+    ['snd_wnd', s.snd_wnd], ['snd_cwnd', s.snd_cwnd],
+    ['packets_out', s.packets_out], ['retrans_out', s.retrans_out]
+  ];
+  const rcvItems = [['rcv_nxt', s.rcv_nxt], ['rcv_wnd', s.rcv_wnd]];
+
+  const sndEl = $('sndStats'); sndEl.innerHTML = '';
+  sndItems.forEach(([k,v]) => {
+    const d = document.createElement('div'); d.className = 'stat-item';
+    d.innerHTML = `<span class="stat-key">${k}</span><span class="stat-val">${v}</span>`;
+    sndEl.appendChild(d);
+  });
+  const rcvEl = $('rcvStats'); rcvEl.innerHTML = '';
+  rcvItems.forEach(([k,v]) => {
+    const d = document.createElement('div'); d.className = 'stat-item';
+    d.innerHTML = `<span class="stat-key">${k}</span><span class="stat-val">${v}</span>`;
+    rcvEl.appendChild(d);
+  });
+}
+
+function renderFn(s) {
+  const cFn = $('clientFn'), sFn = $('serverFn');
+  if (s.clientFn) { cFn.textContent = s.clientFn; cFn.style.display = ''; }
+  else cFn.style.display = 'none';
+  if (s.serverFn) { sFn.textContent = s.serverFn; sFn.style.display = ''; }
+  else sFn.style.display = 'none';
+}
+
+function render() {
+  const s = state;
+  renderSkbRow('sendBuf', s.sendBuf);
+  renderSkbRow('writeQueue', s.writeQueue);
+  renderSkbRow('retxQueue', s.retxQueue);
+  renderSkbRow('rcvQueue', s.rcvQueue);
+  renderOOO(s.oooQueue);
+  renderSkbRow('rcvBuf', s.rcvBuf);
+  renderWindow(s);
+  renderStats(s);
+  renderFn(s);
+}
+
+// ── Step engine ────────────────────────────────────────────────────────────
+function resetState() {
+  clearNet();
+  Object.assign(state, {
+    step: 0, running: false,
+    sendBuf: [], writeQueue: [], retxQueue: [],
+    rcvQueue: [], oooQueue: [], rcvBuf: [], netPkts: [],
+    snd_una: 1000, snd_nxt: 1000, snd_wnd: 4000, snd_cwnd: 4, packets_out: 0, retrans_out: 0,
+    rcv_nxt: 1000, rcv_wnd: 4000,
+    clientFn: '', serverFn: '', logTime: 0
+  });
+  $('log').innerHTML = '';
+  render();
+}
+
+function applyStep() {
+  const sc = scenarios[state.scenario];
+  if (state.step >= sc.steps.length) { state.running = false; updateTransportBtns(); return; }
+  sc.steps[state.step](state);
+  state.step++;
+  render();
+  updateTransportBtns();
+}
+
+function autoRun() {
+  if (!state.running) return;
+  const sc = scenarios[state.scenario];
+  if (state.step >= sc.steps.length) { state.running = false; updateTransportBtns(); return; }
+  applyStep();
+  const delay = 1200 / state.speed;
+  state.timer = setTimeout(autoRun, delay);
+}
+
+function updateTransportBtns() {
+  const btns = $('transportBtns');
+  const playBtn = btns.querySelector('[data-action=play]');
+  const stepBtn = btns.querySelector('[data-action=step]');
+  const sc = scenarios[state.scenario];
+  const done = state.step >= sc.steps.length;
+  if (playBtn) playBtn.textContent = state.running ? '⏸ PAUSE' : '▶ PLAY';
+  if (stepBtn) stepBtn.disabled = done;
+}
+
+// ── Build UI ───────────────────────────────────────────────────────────────
+function buildControls() {
+  // Scenarios
+  const sb = $('scenarioBtns');
+  scenarios.forEach((sc, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = sc.name;
+    btn.title = sc.desc;
+    btn.className = i === 0 ? 'active' : '';
+    btn.onclick = () => {
+      clearTimeout(state.timer);
+      state.scenario = i;
+      state.running = false;
+      document.querySelectorAll('#scenarioBtns button').forEach((b,j) => b.className = j===i?'active':'');
+      resetState();
+      updateTransportBtns();
+    };
+    sb.appendChild(btn);
+  });
+
+  // Transport buttons
+  const tb = $('transportBtns');
+  [['play','▶ PLAY'],['step','⏭ STEP'],['replay','↺ RESET']].forEach(([action,label]) => {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.setAttribute('data-action', action);
+    btn.onclick = () => {
+      if (action === 'play') {
+        const sc = scenarios[state.scenario];
+        if (state.step >= sc.steps.length) { resetState(); }
+        state.running = !state.running;
+        if (state.running) autoRun();
+        else clearTimeout(state.timer);
+        updateTransportBtns();
+      } else if (action === 'step') {
+        state.running = false;
+        clearTimeout(state.timer);
+        applyStep();
+      } else if (action === 'replay') {
+        state.running = false;
+        clearTimeout(state.timer);
+        resetState();
+        updateTransportBtns();
+      }
+    };
+    tb.appendChild(btn);
+  });
+
+  // Speed
+  const sl = $('speedSlider');
+  sl.oninput = () => {
+    state.speed = +sl.value;
+    $('speedVal').textContent = (+sl.value).toFixed(1) + '×';
+  };
+}
+
+buildControls();
+resetState();
+</script>
