@@ -15,7 +15,7 @@ slug: "iptables_ubuntu_2601_lts_environment_실습"
 
 먼저 실습전에, 무엇을 할것인지에 대해서 간략하게 설명해보자면 우분투 OS위에서 가상환경을 쿠버네티스 없이 구축을 한 후 가상환경 → 호스트 → 인터넷 으로 패킷이 빠져나갈 수 있는 네트워크를 구축해줄것이다.
 
-[!BitOperations](https://iximiuz.com/laymans-iptables-101/netns.png)
+![BitOperations](https://iximiuz.com/laymans-iptables-101/netns.png)
 
 
 이는 컨테이너 기반의 도커, 쿠버네티스 가상화에서 매우매우 중요한 부분인데, 이 컨테이너 가상화라는 기술이 리눅스 커널의 namespace 기술을 이용하여 구축된것이기 때문이다. 우리는 network namespace를 Host에서 생성한 다음, VHost↔ Vguest 로 네임스페이스 인터페이스를 연결해줄것이다. 가상 랜 케이블 하나의 양쪽을 각각의 가상 컴퓨터 포트에 연결해준것과 같다.
