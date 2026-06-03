@@ -10,11 +10,12 @@ author: "현제 김_7254"
 slug: "iptables_ubuntu_2601_lts_environment_실습"
 ---
 
-이번주에 포스팅한 iptables의 내용에 대해서 실습해보자. 나는 Ubuntu 환경을 Mac OS에서 multipass라는 하이퍼바이져 위에 구성하여 실습하고 있다. 굉장히 간편하게 환경을 구성할 수 있기에 Mac OS를 쓰는 분들이라면 강력 추천드리고 싶다.
+이번주에 포스팅한 iptables의 내용에 대해서 실습해보자. 나는 Ubuntu 환경을 Mac OS에서 multipass라는 하이퍼바
+이져 위에 구성하여 실습하고 있다. 굉장히 간편하게 환경을 구성할 수 있기에 Mac OS를 쓰는 분들이라면 강력 추천드리고 싶다.
 
 먼저 실습전에, 무엇을 할것인지에 대해서 간략하게 설명해보자면 우분투 OS위에서 가상환경을 쿠버네티스 없이 구축을 한 후 가상환경 → 호스트 → 인터넷 으로 패킷이 빠져나갈 수 있는 네트워크를 구축해줄것이다.
 
-<image class="image_num_1" src="/assets/image_14786d15-6de7-4642-815a-30f93d1d29ab.png" alt="" width="100%" height=100% ></image>
+[!BitOperations](https://iximiuz.com/laymans-iptables-101/netns.png)
 
 
 이는 컨테이너 기반의 도커, 쿠버네티스 가상화에서 매우매우 중요한 부분인데, 이 컨테이너 가상화라는 기술이 리눅스 커널의 namespace 기술을 이용하여 구축된것이기 때문이다. 우리는 network namespace를 Host에서 생성한 다음, VHost↔ Vguest 로 네임스페이스 인터페이스를 연결해줄것이다. 가상 랜 케이블 하나의 양쪽을 각각의 가상 컴퓨터 포트에 연결해준것과 같다.
