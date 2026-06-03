@@ -532,6 +532,428 @@ options edns0 trust-ad
 search .
 ```
 
-### DNS 직접 테스트 
+### 환경 재구성. 재현성을 위한 쉘 스크립트
+```
+#!/bin/bash
 
-nslookup google.com 8.8.8.8 또는 dig google.com @8.8.8.8 이 성공하면 DNS 경로는 이상없음
+set -e
+
+NETNS=container
+BRIDGE=br0
+
+VHOST=vHOST
+VGUEST=vGUEST
+
+HOST_IP=172.16.0.1/16
+GUEST_IP=172.16.0.2/16
+
+OUT_IF=ens3
+
+create() {
+
+
+echo "[+] Enable IP Forward"
+
+sysctl -w net.ipv4.ip_forward=1
+
+echo "[+] Create Namespace"
+
+ip netns add ${NETNS} 2>/dev/null || true
+
+echo "[+] Create Bridge"
+
+ip link add ${BRIDGE} type bridge 2>/dev/null || true
+
+ip addr add ${HOST_IP} dev ${BRIDGE} 2>/dev/null || true
+
+ip link set ${BRIDGE} up
+
+echo "[+] Create VETH Pair"
+
+ip link add ${VHOST} type veth peer name ${VGUEST} 2>/dev/null || true
+
+echo "[+] Attach Host Side to Bridge"
+
+ip link set ${VHOST} master ${BRIDGE}
+
+ip link set ${VHOST} up
+
+echo "[+] Move Guest Side into Namespace"
+
+ip link set ${VGUEST} netns ${NETNS}
+
+echo "[+] Configure Guest Interface"
+
+ip netns exec ${NETNS} ip addr add ${GUEST_IP} dev ${VGUEST}
+
+ip netns exec ${NETNS} ip link set lo up
+
+ip netns exec ${NETNS} ip link set ${VGUEST} up
+
+ip netns exec ${NETNS} ip route add default via 172.16.0.1
+
+echo "[+] Configure NAT"
+
+iptables -t nat -C POSTROUTING -o ${OUT_IF} -j MASQUERADE \
+    2>/dev/null || \
+iptables -t nat -A POSTROUTING -o ${OUT_IF} -j MASQUERADE
+
+echo "[+] Done"
+
+
+}
+
+destroy() {
+
+
+echo "[+] Remove NAT"
+
+iptables -t nat -D POSTROUTING -o ${OUT_IF} -j MASQUERADE \
+    2>/dev/null || true
+
+echo "[+] Remove Namespace"
+
+ip netns del ${NETNS} 2>/dev/null || true
+
+echo "[+] Remove Bridge"
+
+ip link del ${BRIDGE} 2>/dev/null || true
+
+echo "[+] Done"
+
+
+}
+
+verify() {
+
+
+echo
+echo "===== HOST ====="
+
+ip addr show ${BRIDGE}
+
+echo
+ip route
+
+echo
+echo "===== NAMESPACE ====="
+
+ip netns exec ${NETNS} ip addr
+
+echo
+ip netns exec ${NETNS} ip route
+
+echo
+echo "===== NAT ====="
+
+iptables -t nat -L POSTROUTING -n -v
+
+
+}
+
+case "$1" in
+create)
+create
+;;
+destroy)
+destroy
+;;
+verify)
+verify
+;;
+*)
+echo "Usage:"
+echo "  $0 create"
+echo "  $0 destroy"
+echo "  $0 verify"
+exit 1
+;;
+esac
+
+```
+
+multipass 가상머신의 오늘 실습한 설정들은 커널 메모리에 올라가 있는 것이다. 즉 가상머신이 중지되면 휘발된다. 따라서 크게 두가지 방법으로 영속화할수 있는데 
+첫번째로는 스냅샷을떠서 디스크에 저장하는 것이고, 두 번째는 쉘 스크립트로 오늘 실습한 설정들을 작성해서 프로비져닝 후에 스크립트를 수행하면 자동으로 설정들이
+수행되게 하는 방법이다. 
+
+일반적으로 두번째가 더 편하고 재현성도 좋기에 보편적으로 사용하는 방법이다. 
+
+
+### 추가 수정. systemd daemo으로 가상 머신이 프로비져닝 이후 자동 스크립트 실행
+생각을 해보니 프로비져닝이 된 후에 바로 스크립트로 밀어넣는것이 좋을것같아 systemd 데몬에 서비스 파일을 작성하고 자동으로 작성해둔 쉘스크립트를 실행하도록 해두었다. 
+여기서 프로비져닝이 되었지만 vNIC이 활성화가 바로 되지 않을수도 있으므로 잠깐의 여유시간을 둔다. ExecStartPre=/bin/bash -c 'until ip link show ens3; do sleep 1; done'
+
+### 1. 서비스 파일 생성
+```
+sudo nano /etc/systemd/system/lab-net.service
+```
+
+- 파일 내용
+[Unit]
+Description=Lab Network Namespace Setup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/bash -c 'until ip link show ens3; do sleep 1; done'
+ExecStart=/bin/bash /home/ubuntu/lab.sh create
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+- 활성화
+```
+sudo systemctl daemon-reexec
+sudo sytstemctl enable lab-net.service
+```
+
+테스트 
+sudo systemctl start lab-net.sercvice
+
+### 최종 구조
+```
+boot
+ └─ systemd
+      └─ lab-net.service
+            └─ lab.sh create
+                   ├─ netns / veth / bridge 생성
+                   ├─ iptables NAT 설정
+                   ├─ ip_forward enable
+                   ├─ connectivity test (ping/curl)
+                   └─ report 생성 (/home/ubuntu/lab-report.txt)
+```
+
+### 스크립트 실행후 자동 테스팅 및 report.txt
+스크립트가 실행된 이후 자동으로 핑과 같은 네트워크 테스트를 수행한 후 report를 작성하는 것까지 자동화를 해보겠다. 아래와 같은 스크립트를 먼저 작성해준다.
+```
+sudo tee /home/ubuntu/lab/lab-bootstrap.sh > /dev/null <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+source /home/ubuntu/lab/lab-config.env
+
+BASE=/home/ubuntu/lab
+REPORT_DIR=$BASE/report
+
+mkdir -p $REPORT_DIR
+
+LOG=$REPORT_DIR/latest.log
+JSON=$REPORT_DIR/latest.json
+STATUS=$REPORT_DIR/latest.status
+
+log() {
+    echo "$(date '+%F %T') $1" | tee -a $LOG
+}
+
+json() {
+    echo "$1" >> $JSON
+}
+
+fail() {
+    log "[FAIL] $1"
+    echo "FAIL" > $STATUS
+    exit 1
+}
+
+ok() {
+    log "[OK] $1"
+}
+
+echo "{" > $JSON
+
+log "========== LAB BOOTSTRAP START =========="
+echo "RUNNING" > $STATUS
+
+# 1. IP Forward
+log "[1] enable ip_forward"
+sysctl -w net.ipv4.ip_forward=1 >> $LOG 2>&1
+ok "ip_forward enabled"
+
+json '"ip_forward":"enabled",'
+
+# 2. Namespace
+log "[2] create netns"
+ip netns add $NETNS 2>/dev/null || true
+
+# 3. Bridge
+log "[3] create bridge"
+ip link add $BRIDGE type bridge 2>/dev/null || true
+ip addr add $HOST_IP dev $BRIDGE 2>/dev/null || true
+ip link set $BRIDGE up
+
+# 4. veth
+log "[4] create veth pair"
+ip link add $VHOST type veth peer name $VGUEST 2>/dev/null || true
+ip link set $VHOST master $BRIDGE
+ip link set $VHOST up
+ip link set $VGUEST netns $NETNS
+
+# 5. container config
+log "[5] configure namespace"
+ip netns exec $NETNS ip addr add $GUEST_IP dev $VGUEST
+ip netns exec $NETNS ip link set lo up
+ip netns exec $NETNS ip link set $VGUEST up
+ip netns exec $NETNS ip route add default via 172.16.0.1
+
+# 6. NAT
+log "[6] setup NAT"
+iptables -t nat -C POSTROUTING -o $OUT_IF -j MASQUERADE 2>/dev/null || \
+iptables -t nat -A POSTROUTING -o $OUT_IF -j MASQUERADE
+
+ok "nat configured"
+
+# 7. connectivity tests
+log "[7] connectivity tests"
+
+PING_OK=0
+DNS_OK=0
+CURL_OK=0
+
+if ip netns exec $NETNS ping -c 2 8.8.8.8 >/dev/null 2>&1; then
+    PING_OK=1
+    ok "ping external ok"
+else
+    log "[WARN] ping failed"
+fi
+
+if ip netns exec $NETNS nslookup google.com $DNS_SERVER >/dev/null 2>&1; then
+    DNS_OK=1
+    ok "dns ok"
+else
+    log "[WARN] dns failed"
+fi
+
+if ip netns exec $NETNS curl -I https://www.google.com --max-time 5 >/dev/null 2>&1; then
+    CURL_OK=1
+    ok "curl ok"
+else
+    log "[WARN] curl failed"
+fi
+
+# 8. final report
+log "[8] writing final report"
+
+cat <<EOF2 >> $JSON
+"results":{
+  "ping":$PING_OK,
+  "dns":$DNS_OK,
+  "curl":$CURL_OK
+}
+}
+EOF2
+
+if [ $PING_OK -eq 1 ] && [ $CURL_OK -eq 1 ]; then
+    echo "SUCCESS" > $STATUS
+    log "========== BOOTSTRAP SUCCESS =========="
+else
+    echo "PARTIAL" > $STATUS
+    log "========== BOOTSTRAP PARTIAL =========="
+fi
+
+log "report saved to $LOG and $JSON"
+EOF
+```
+
+### report.txt
+```
+ubuntu@purified-cusk:~/gimhyeonje$ ls
+ls: unknown io error: '.', 'Os { code: 107, kind: NotConnected, message: "Transport endpoint is not connected" }'
+ubuntu@purified-cusk:~/gimhyeonje$ ls
+ls: unknown io error: '.', 'Os { code: 107, kind: NotConnected, message: "Transport endpoint is not connected" }'
+ubuntu@purified-cusk:~/gimhyeonje$ ls
+ls: unknown io error: '.', 'Os { code: 107, kind: NotConnected, message: "Transport endpoint is not connected" }'
+ubuntu@purified-cusk:~/gimhyeonje$ ls
+ls: unknown io error: '.', 'Os { code: 107, kind: NotConnected, message: "Transport endpoint is not connected" }'
+ubuntu@purified-cusk:~/gimhyeonje$ cd ..
+ubuntu@purified-cusk:~$ ls
+gimhyeonje  lab-bootstrap.sh  lab-report.txt  lab.sh  snap
+ubuntu@purified-cusk:~$ cat lab-report.txt
+===== LAB BOOTSTRAP START =====
+[1] Enable IP Forward
+[2] Create Namespace
+[3] Create Bridge
+[4] Create VETH
+[5] NAT Setup
+[6] Connectivity Test
+PING 172.16.0.1 (172.16.0.1) 56(84) bytes of data.
+64 bytes from 172.16.0.1: icmp_seq=1 ttl=64 time=0.064 ms
+64 bytes from 172.16.0.1: icmp_seq=2 ttl=64 time=0.033 ms
+
+--- 172.16.0.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1025ms
+rtt min/avg/max/mdev = 0.033/0.048/0.064/0.015 ms
+PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
+64 bytes from 8.8.8.8: icmp_seq=1 ttl=111 time=36.3 ms
+64 bytes from 8.8.8.8: icmp_seq=2 ttl=111 time=36.3 ms
+
+--- 8.8.8.8 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1004ms
+rtt min/avg/max/mdev = 36.322/36.329/36.337/0.007 ms
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0
+HTTP/2 200
+content-type: text/html; charset=ISO-8859-1
+content-security-policy-report-only: object-src 'none';base-uri 'self';script-src 'nonce-jCnxPOvRlDBkoQPh8LlqjQ' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp
+accept-ch: Sec-CH-Prefers-Color-Scheme
+p3p: CP="This is not a P3P policy! See g.co/p3phelp for more info."
+date: Wed, 03 Jun 2026 06:42:06 GMT
+server: gws
+x-xss-protection: 0
+x-frame-options: SAMEORIGIN
+expires: Wed, 03 Jun 2026 06:42:06 GMT                                                     cache-control: private                                                                     set-cookie: AEC=AaJma5tf_IQfdcG-JoM9zZf9pZgIk1BzoLQneWKVbbMo_lwseysQOKRk0g; expires=Mon, 30-Nov-2026 06:42:06 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax         set-cookie: NID=531=iKTkgqkN7Vm4GykQDQi4E4P0XNHPOAxKohx39heopX_IQIxKXvMsrGVCaGjfz1b1szsnW37D-s5-zjMQ-WKNXpZj-bTjB7t3aPU079sUGDUeJsKAsN8ld--mEq1RrY2Gh0a1WJHFbH1FBLYdw1v4cAAih4eNgJkxvwP8VJvRYwyO6fVwTHOnIHGYYy70gMLWKcSZeOsCd6rSsYD_; expires=Thu, 03-Dec-2026 06:42:06 GMT; path=/; domain=.google.com; HttpOnly
+alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+
+===== FINAL STATUS =====
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host proto kernel_lo                                                      valid_lft forever preferred_lft forever
+4: vGUEST@if5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether c6:07:ec:3c:07:7a brd ff:ff:ff:ff:ff:ff link-netnsid 0                          inet 172.16.0.2/16 scope global vGUEST                                                        valid_lft forever preferred_lft forever                                                 inet6 fe80::c407:ecff:fe3c:77a/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
+default via 172.16.0.1 dev vGUEST
+172.16.0.0/16 dev vGUEST proto kernel scope link src 172.16.0.2                            3: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether f2:00:d8:4f:26:7c brd ff:ff:ff:ff:ff:ff
+    inet 172.16.0.1/16 scope global br0                                                           valid_lft forever preferred_lft forever                                                 inet6 fe80::80a9:ddff:febd:bfbc/64 scope link proto kernel_ll                                 valid_lft forever preferred_lft forever                                             default via 192.168.252.1 dev ens3 proto dhcp src 192.168.252.4 metric 100                 172.16.0.0/16 dev br0 proto kernel scope link src 172.16.0.1                               192.168.252.0/24 dev ens3 proto kernel scope link src 192.168.252.4 metric 100
+192.168.252.1 dev ens3 proto dhcp scope link src 192.168.252.4 metric 100
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 2 packets, 149 bytes)                                      pkts bytes target     prot opt in     out     source               destination
+   14  2626 MASQUERADE  all  --  *      ens3    0.0.0.0/0            0.0.0.0/0
+===== LAB BOOTSTRAP DONE =====                                                             ubuntu@purified-cusk:~$
+```
+
+
+자동화한 내용은 다음과 같다. 실습을 마치며 네임스페이스를 직접 분리하여 veth pair를 직접 인터페이스에 맵핑한 후 네트워크 스택과 호스트를 넘나들며 디버깅하는것은 나에게 있어 큰 도움이
+되었다. 컨테이너의 핵심적인 기술을 직접 구현하며 이해하게 되어서 마음이 시원한 부분도 있다. 그동안 컨테이너가 linux의 Naemspace를 이용하여 격리기술을 쓴다는것은 알고 있었지만
+구체적으로 어떻게 공간을 격리하는지에 대해서 명확하게 이해하지 못하는 부분들이 있었는데 이 실습으로 인해 명확해진것 같다. 또한 iptables를 통한 방화벽 설정을 직접 커맨드라인으로 작성하며
+패킷이 드나드는것을 컨트롤 하는것또한 iptables의 이해하는데 큰 도움이 되었으며 현대 리눅스에서는 nftables를 더 적극적으로 활용하고, 쿠버네티스 진영에서도 여전히 iptables
+를 사용하긴 하지만 ebpf를 요즘에는 적극 활용하는것 같다. cillum과 ebpf를 공부하기 전에 먼저 iptables를 짚고 넘어가야 한다고 생각했는데 마음이 한 켠 놓인다. 
+
+VM boot
+  ↓
+systemd network-online.target
+  ↓
+lab-net.service
+  ↓
+lab.sh create
+  ↓
+netns + veth + bridge + NAT
+  ↓
+ping/curl test
+  ↓
+/home/ubuntu/lab-report.txt 생성
+
+
+
