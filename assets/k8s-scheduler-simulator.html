@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8s Scheduler Simulator</title>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --bg4: #30363d;
+  --border: #30363d; --border2: #484f58;
+  --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --blue: #58a6ff; --blue-dim: #1f6feb; --blue-bg: #0d2d6b;
+  --green: #3fb950; --green-dim: #196c2e; --green-bg: #0d3a18;
+  --red: #f85149; --red-dim: #b62324; --red-bg: #3d1c1c;
+  --amber: #d29922; --amber-bg: #3d2b00;
+  --purple: #bc8cff; --purple-bg: #271d3a;
+  --teal: #39d0d8; --teal-bg: #0d2f30;
+  --coral: #ff7b72;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'SF Mono','Fira Code',monospace; font-size: 13px; overflow-x: hidden; }
+
+.app { display: grid; grid-template-columns: 260px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+.topbar { grid-column: 1/-1; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+.topbar h1 { font-size: 13px; font-weight: 600; color: var(--text); }
+.badge { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-dim); border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+
+.sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; }
+.sidebar-title { padding: 10px 14px 6px; font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--text3); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.scenario-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px; cursor: pointer; border-left: 2px solid transparent; transition: all .15s; }
+.scenario-item:hover { background: var(--bg3); }
+.scenario-item.active { background: var(--bg3); border-left-color: var(--blue); }
+.scenario-num { font-size: 10px; font-weight: 700; color: var(--blue); min-width: 16px; padding-top: 1px; }
+.scenario-label { font-size: 11px; color: var(--text); line-height: 1.4; }
+.scenario-tag { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+.main { display: flex; flex-direction: column; overflow: hidden; }
+.main-header { padding: 12px 16px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.scenario-title { font-size: 15px; font-weight: 700; }
+.scenario-desc { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.5; max-width: 580px; }
+.btn-row { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.run-btn { background: var(--blue-dim); color: #fff; border: none; border-radius: 5px; padding: 6px 16px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .15s; }
+.run-btn:hover { background: var(--blue); }
+.run-btn:disabled { opacity: .4; cursor: not-allowed; }
+.reset-btn { background: transparent; color: var(--text2); border: 1px solid var(--border2); border-radius: 5px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: inherit; transition: all .15s; }
+.reset-btn:hover { background: var(--bg3); color: var(--text); }
+
+.speed-bar { display: flex; align-items: center; gap: 8px; padding: 5px 16px; border-bottom: 1px solid var(--border); background: var(--bg2); flex-shrink: 0; }
+.speed-bar label { font-size: 10px; color: var(--text3); }
+.speed-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); border-radius: 3px; padding: 1px 7px; font-size: 10px; cursor: pointer; font-family: inherit; transition: all .12s; }
+.speed-btn:hover, .speed-btn.on { background: var(--blue-bg); color: var(--blue); border-color: var(--blue-dim); }
+#sim-status { margin-left: auto; font-size: 10px; color: var(--text3); }
+
+/* Three-pane content */
+.content { flex: 1; display: grid; grid-template-columns: 1fr 310px; overflow: hidden; }
+.cluster-view { padding: 12px; overflow-y: auto; }
+.right-panel { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+/* Tabs */
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg2); flex-shrink: 0; }
+.tab { padding: 7px 12px; font-size: 11px; font-weight: 600; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+.tab.active { color: var(--text); border-bottom-color: var(--blue); }
+.tab-pane { flex: 1; overflow-y: auto; padding: 10px; display: none; }
+.tab-pane.active { display: block; }
+.tab-pane.active.flex-pane { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+
+/* Node cards */
+.cluster-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.cluster-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.nodes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.node-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 9px; transition: all .2s; position: relative; }
+.node-card.highlighted { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue-dim); }
+.node-card.filtered-out { opacity: .28; }
+.node-card.winner { border-color: var(--green); box-shadow: 0 0 0 1px var(--green-dim), 0 0 14px rgba(63,185,80,.1); }
+.node-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.node-name { font-size: 11px; font-weight: 700; }
+.node-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.node-dot.tainted { background: var(--amber); }
+.node-labels { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 6px; }
+.nlabel { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; font-size: 9px; color: var(--text2); }
+.nlabel.key { color: var(--blue); border-color: var(--blue-dim); background: var(--blue-bg); }
+.nlabel.taint { color: var(--amber); border-color: var(--amber-bg); background: var(--amber-bg); }
+.nlabel.zone { color: var(--purple); border-color: var(--purple-bg); background: var(--purple-bg); }
+.nlabel.gpu { color: var(--teal); border-color: var(--teal-bg); background: var(--teal-bg); }
+.nlabel.ssd { color: var(--coral); border-color: #3d1f1a; background: #1a100e; }
+.res-row { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.res-lbl { width: 26px; font-size: 9px; color: var(--text3); }
+.res-bg { flex: 1; height: 3px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
+.res-bar { height: 100%; border-radius: 2px; transition: width .5s; }
+.res-bar.cpu { background: var(--blue); }
+.res-bar.mem { background: var(--purple); }
+.res-val { font-size: 9px; color: var(--text3); min-width: 38px; text-align: right; }
+.pods-area { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 2px; min-height: 14px; }
+.pod-dot { width: 11px; height: 11px; border-radius: 2px; background: var(--green-dim); border: 1px solid var(--green); font-size: 7px; display: flex; align-items: center; justify-content: center; color: var(--green); }
+.pod-dot.new-pod { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); animation: ppop .5s ease; }
+@keyframes ppop { 0%{transform:scale(0);opacity:0} 60%{transform:scale(1.3)} 100%{transform:scale(1);opacity:1} }
+.score-badge { position: absolute; top: 7px; right: 7px; border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700; }
+.score-badge.h { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-dim); }
+.score-badge.m { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.score-badge.l { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-dim); }
+.filter-reason { font-size: 9px; margin-top: 4px; }
+.filter-reason.pass { color: var(--green); }
+.filter-reason.fail { color: var(--red); }
+
+/* Pending pod banner */
+.pending-card { background: var(--bg3); border: 1px solid var(--amber); border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.pending-name { font-size: 11px; font-weight: 700; }
+.pending-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+.status-pill { font-size: 10px; padding: 1px 7px; border-radius: 3px; }
+.status-pill.pending { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.status-pill.running { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-dim); }
+
+/* Pipeline */
+.pipeline { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+.pp { display: flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); transition: all .3s; }
+.pp.running { border-color: var(--blue); background: var(--blue-bg); animation: blink 1s infinite; }
+.pp.pass { border-color: var(--green-dim); background: var(--green-bg); }
+.pp.fail { border-color: var(--red-dim); background: var(--red-bg); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.75} }
+.pp-icon { font-size: 13px; width: 16px; text-align: center; }
+.pp-name { font-size: 10px; font-weight: 700; flex: 1; }
+.pp-plugin { font-size: 9px; color: var(--text3); }
+.pp-result { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+.pp-result.pass { background: var(--green-bg); color: var(--green); }
+.pp-result.fail { background: var(--red-bg); color: var(--red); }
+.pp-result.idle { background: var(--bg4); color: var(--text3); }
+
+/* Logs */
+.log-line { font-size: 10px; line-height: 1.7; margin-bottom: 1px; }
+.log-line .lt { color: var(--text3); }
+.log-line .li { color: var(--blue); }
+.log-line .lp { color: var(--green); }
+.log-line .lf { color: var(--red); }
+.log-line .ls { color: var(--purple); }
+.log-line .lw { color: var(--amber); }
+.log-line .lm { color: var(--text2); }
+@keyframes fin { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation: fin .25s ease; }
+
+/* Filter chip table */
+.fr-table { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
+.fr-row { display: flex; align-items: center; gap: 5px; font-size: 10px; }
+.fr-name { color: var(--text2); min-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-chip { padding: 1px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+.fr-chip.pass { background: var(--green-bg); color: var(--green); }
+.fr-chip.fail { background: var(--red-bg); color: var(--red); }
+.fr-reason { color: var(--text3); font-size: 9px; }
+
+/* Score table */
+.score-tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
+.score-tbl th { text-align: left; padding: 3px 6px; color: var(--text3); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+.score-tbl td { padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text2); }
+.score-tbl tr.winner-row td { background: var(--green-bg); color: var(--green); font-weight: 700; }
+.mini-bar-bg { width: 60px; height: 3px; background: var(--bg4); border-radius: 2px; overflow: hidden; display: inline-block; vertical-align: middle; }
+.mini-bar { height: 100%; border-radius: 2px; background: var(--blue); }
+
+.sec-div { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; padding: 7px 0 3px; border-top: 1px solid var(--border); margin-top: 7px; }
+
+/* Spread indicator */
+.spread-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 7px; margin-bottom: 8px; }
+.spread-row { display: flex; align-items: center; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
+.spread-bar-bg { height: 5px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
+.spread-bar { height: 100%; background: var(--blue); border-radius: 2px; transition: width .5s; }
+
+/* ═══ YAML EDITOR ═══════════════════════════════════════════════ */
+.yaml-editor-wrap { display: flex; flex-direction: column; height: 100%; }
+.yaml-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: var(--bg3); flex-shrink: 0; flex-wrap: wrap; }
+.yaml-toolbar label { font-size: 10px; color: var(--text3); }
+.file-select { background: var(--bg4); color: var(--text2); border: 1px solid var(--border2); border-radius: 3px; padding: 2px 6px; font-size: 10px; font-family: inherit; cursor: pointer; }
+.file-select:focus { outline: none; border-color: var(--blue); }
+.apply-btn { background: var(--blue-dim); color: #fff; border: none; border-radius: 3px; padding: 3px 10px; font-size: 10px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .15s; margin-left: auto; }
+.apply-btn:hover { background: var(--blue); }
+.format-btn { background: var(--bg4); color: var(--text2); border: 1px solid var(--border2); border-radius: 3px; padding: 3px 8px; font-size: 10px; cursor: pointer; font-family: inherit; }
+.format-btn:hover { background: var(--bg3); color: var(--text); }
+
+.yaml-editor-area { flex: 1; overflow: hidden; position: relative; display: flex; }
+.line-nums { width: 36px; background: var(--bg3); border-right: 1px solid var(--border); padding: 8px 0; text-align: right; overflow: hidden; flex-shrink: 0; user-select: none; }
+.line-num { font-size: 10px; line-height: 1.6; padding-right: 6px; color: var(--text3); height: 16px; }
+.yaml-textarea { flex: 1; background: var(--bg); color: var(--text2); border: none; outline: none; resize: none; font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; line-height: 1.6; padding: 8px 10px; tab-size: 2; overflow-y: auto; white-space: pre; overflow-wrap: normal; }
+.yaml-textarea:focus { background: #0d1117; }
+.yaml-textarea::selection { background: #264f78; }
+
+.yaml-status-bar { display: flex; align-items: center; gap: 10px; padding: 3px 8px; background: var(--bg3); border-top: 1px solid var(--border); flex-shrink: 0; }
+.yaml-status-bar span { font-size: 9px; color: var(--text3); }
+.yaml-status-bar .err { color: var(--red); font-weight: 700; }
+.yaml-status-bar .ok { color: var(--green); font-weight: 700; }
+.yaml-status-bar .changed { color: var(--amber); font-weight: 700; }
+
+.yaml-toast { position: fixed; bottom: 20px; right: 20px; padding: 8px 14px; border-radius: 6px; font-size: 11px; font-weight: 600; z-index: 9999; animation: fin .2s ease; }
+.yaml-toast.ok { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-dim); }
+.yaml-toast.err { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-dim); }
+.yaml-toast.warn { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="topbar">
+  <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+    <circle cx="16" cy="16" r="15" stroke="#326CE5" stroke-width="2"/>
+    <path d="M16 4L28 10V22L16 28L4 22V10Z" fill="#326CE5" opacity=".18" stroke="#326CE5" stroke-width="1.5"/>
+    <circle cx="16" cy="16" r="3" fill="#326CE5"/>
+    <path d="M16 8V13M16 19V24M8 12L12.5 14.5M19.5 17.5L24 20M8 20L12.5 17.5M19.5 14.5L24 12" stroke="#326CE5" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  <h1>K8s Scheduler Simulator</h1>
+  <span class="badge">Filter → Score → Bind</span>
+  <span style="margin-left:auto;font-size:10px;color:var(--text3)">8 Scenarios · YAML Editor</span>
+</div>
+
+<div class="sidebar">
+  <div class="sidebar-title">Scheduling Scenarios</div>
+  <div id="scenario-list"></div>
+</div>
+
+<div class="main">
+  <div class="main-header">
+    <div>
+      <div class="scenario-title" id="sc-title">시나리오를 선택하세요</div>
+      <div class="scenario-desc" id="sc-desc">왼쪽에서 시나리오를 선택하면 클러스터가 표시됩니다. YAML 탭에서 Pod / Node 설정을 수정하고 적용하면 시뮬레이션에 즉시 반영됩니다.</div>
+    </div>
+    <div class="btn-row">
+      <button class="reset-btn" onclick="resetSim()" id="reset-btn" style="display:none">↺ 리셋</button>
+      <button class="run-btn" onclick="runSimulation()" id="run-btn" disabled>▶ 스케줄링 실행</button>
+    </div>
+  </div>
+
+  <div class="speed-bar">
+    <label>속도:</label>
+    <button class="speed-btn on" onclick="setSpeed(1,this)">1×</button>
+    <button class="speed-btn" onclick="setSpeed(2,this)">2×</button>
+    <button class="speed-btn" onclick="setSpeed(4,this)">4×</button>
+    <span id="sim-status">대기 중</span>
+  </div>
+
+  <div class="content">
+    <div class="cluster-view" id="cluster-view">
+      <div style="color:var(--text3);font-size:12px;padding:24px;text-align:center">← 시나리오를 선택하세요</div>
+    </div>
+
+    <div class="right-panel">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('pipeline',this)">파이프라인</div>
+        <div class="tab" onclick="switchTab('logs',this)">로그</div>
+        <div class="tab" onclick="switchTab('yaml',this)">YAML 편집</div>
+        <div class="tab" onclick="switchTab('scores',this)">스코어</div>
+      </div>
+      <div class="tab-pane active" id="tab-pipeline">
+        <div style="color:var(--text3);font-size:11px;padding:10px">시뮬레이션을 실행하면 파이프라인이 표시됩니다.</div>
+      </div>
+      <div class="tab-pane" id="tab-logs"><div id="log-lines"></div></div>
+      <div class="tab-pane" id="tab-yaml" style="padding:0;overflow:hidden;display:none">
+        <div class="yaml-editor-wrap" id="yaml-editor-wrap" style="height:100%">
+          <div style="color:var(--text3);font-size:11px;padding:16px">시나리오를 선택하면 YAML 편집기가 열립니다.</div>
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-scores">
+        <div id="score-content" style="color:var(--text3);font-size:11px">시뮬레이션 실행 후 표시됩니다.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let currentScenario = null;   // original (immutable template)
+let liveScenario = null;      // mutable copy driven by YAML editor
+let simSpeed = 1;
+let simRunning = false;
+let activeYamlFile = 'pod';   // which file is open in editor
+let yamlDirty = false;        // unsaved changes?
+
+function setSpeed(s, btn) {
+  simSpeed = s;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ══════════════════════════════════════════════════════════════
+// SCENARIO DEFINITIONS
+// ══════════════════════════════════════════════════════════════
+const scenarios = [
+  {
+    id:1, title:"Node Selector Plugin", tag:"NodeSelector · Filter",
+    desc:"nodeSelector로 특정 라벨의 노드에만 Pod를 배치합니다. 매칭 안 되는 노드는 Filter에서 탈락합니다.",
+    nodes:[
+      {name:"node-01",labels:{"kubernetes.io/os":"linux","tier":"frontend"},cpu:40,mem:35,cpuCap:"4000m",memCap:"8Gi",pods:["pod-a","pod-b"]},
+      {name:"node-02",labels:{"kubernetes.io/os":"linux","tier":"backend"},cpu:60,mem:50,cpuCap:"4000m",memCap:"8Gi",pods:["pod-c"]},
+      {name:"node-03",labels:{"kubernetes.io/os":"linux","tier":"backend","env":"prod"},cpu:25,mem:30,cpuCap:"8000m",memCap:"16Gi",pods:[]},
+      {name:"node-04",labels:{"tier":"storage"},cpu:15,mem:20,cpuCap:"4000m",memCap:"8Gi",pods:[]}
+    ],
+    pod:{name:"backend-pod",image:"nginx:1.21",cpu:"200m",mem:"256Mi",nodeSelector:{"tier":"backend"},description:"tier=backend 라벨 요구"},
+    phases:[
+      {name:"PreFilter",plugin:"NodeSelector",icon:"🔍"},{name:"Filter",plugin:"NodeSelector",icon:"🚫"},
+      {name:"Score",plugin:"LeastAllocated",icon:"📊"},{name:"NormalizeScore",plugin:"LeastAllocated",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:2, title:"GPU 노드 중 2개 선택", tag:"NodeAffinity · Score",
+    desc:"GPU 리소스 노드를 preferredDuringScheduling으로 선호합니다. A100이 최우선 선택됩니다.",
+    nodes:[
+      {name:"gpu-node-1",labels:{accelerator:"nvidia-v100",gpu:"true",zone:"ap-1a"},cpu:70,mem:60,cpuCap:"32000m",memCap:"128Gi",gpuCap:"4",gpuUsed:2,pods:["ml-job-1"]},
+      {name:"gpu-node-2",labels:{accelerator:"nvidia-a100",gpu:"true",zone:"ap-1b"},cpu:30,mem:25,cpuCap:"64000m",memCap:"256Gi",gpuCap:"8",gpuUsed:1,pods:[]},
+      {name:"gpu-node-3",labels:{accelerator:"nvidia-v100",gpu:"true",zone:"ap-1a"},cpu:85,mem:80,cpuCap:"32000m",memCap:"128Gi",gpuCap:"4",gpuUsed:3,pods:["ml-job-2","ml-job-3"]},
+      {name:"cpu-node-1",labels:{zone:"ap-1a"},cpu:20,mem:30,cpuCap:"16000m",memCap:"64Gi",pods:[]},
+      {name:"cpu-node-2",labels:{zone:"ap-1b"},cpu:35,mem:40,cpuCap:"16000m",memCap:"64Gi",pods:[]}
+    ],
+    pod:{name:"ml-training-pod",image:"tensorflow/tensorflow:2.10.0-gpu",cpu:"4000m",mem:"16Gi",gpu:"2",
+      preferredAccelerator:"nvidia-a100",gpuRequest:2,description:"A100 GPU 선호, nvidia.com/gpu: 2 요청"},
+    phases:[
+      {name:"PreFilter",plugin:"NodeAffinity, NodeResourcesFit",icon:"🔍"},{name:"Filter",plugin:"NodeResourcesFit",icon:"🚫"},
+      {name:"Score",plugin:"NodeAffinity (weight:100)",icon:"📊"},{name:"Score",plugin:"LeastAllocated",icon:"📊"},
+      {name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:3, title:"SSD 선호", tag:"NodeAffinity · preferred",
+    desc:"SSD 스토리지 노드를 preferredDuring으로 선호합니다. SSD 없어도 스케줄링은 성공합니다.",
+    nodes:[
+      {name:"node-ssd-1",labels:{"storage-type":"ssd",zone:"us-east-1a"},cpu:55,mem:45,cpuCap:"8000m",memCap:"32Gi",pods:["app-1"]},
+      {name:"node-ssd-2",labels:{"storage-type":"ssd",zone:"us-east-1b"},cpu:20,mem:25,cpuCap:"8000m",memCap:"32Gi",pods:[]},
+      {name:"node-hdd-1",labels:{"storage-type":"hdd",zone:"us-east-1a"},cpu:10,mem:15,cpuCap:"8000m",memCap:"32Gi",pods:[]},
+      {name:"node-hdd-2",labels:{"storage-type":"hdd",zone:"us-east-1b"},cpu:30,mem:35,cpuCap:"8000m",memCap:"32Gi",pods:[]}
+    ],
+    pod:{name:"db-primary",image:"postgres:14",cpu:"1000m",mem:"4Gi",preferredStorage:"ssd",ssdWeight:80,description:"SSD 노드 선호 (필수 아님)"},
+    phases:[
+      {name:"PreFilter",plugin:"NodeAffinity",icon:"🔍"},{name:"Filter",plugin:"(조건 없음 - 전체 통과)",icon:"🚫"},
+      {name:"Score",plugin:"NodeAffinity preferred (weight:80)",icon:"📊"},{name:"Score",plugin:"LeastAllocated",icon:"📊"},
+      {name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:4, title:"Zone 강제", tag:"NodeAffinity · required",
+    desc:"requiredDuringScheduling으로 특정 AZ에만 Pod를 강제 배치합니다.",
+    nodes:[
+      {name:"node-ap-1a-1",labels:{"topology.kubernetes.io/zone":"ap-northeast-1a",tier:"app"},cpu:50,mem:40,cpuCap:"8000m",memCap:"16Gi",pods:["app-1","app-2"]},
+      {name:"node-ap-1a-2",labels:{"topology.kubernetes.io/zone":"ap-northeast-1a",tier:"app"},cpu:30,mem:35,cpuCap:"8000m",memCap:"16Gi",pods:["app-3"]},
+      {name:"node-ap-1b-1",labels:{"topology.kubernetes.io/zone":"ap-northeast-1b",tier:"app"},cpu:20,mem:20,cpuCap:"8000m",memCap:"16Gi",pods:[]},
+      {name:"node-ap-1c-1",labels:{"topology.kubernetes.io/zone":"ap-northeast-1c",tier:"app"},cpu:15,mem:25,cpuCap:"8000m",memCap:"16Gi",pods:[]}
+    ],
+    pod:{name:"zone-locked-pod",image:"myapp:v2.0",cpu:"500m",mem:"1Gi",requiredZone:"ap-northeast-1a",description:"ap-northeast-1a Zone 필수"},
+    phases:[
+      {name:"PreFilter",plugin:"NodeAffinity (required)",icon:"🔍"},{name:"Filter",plugin:"NodeAffinity (Zone 필터링)",icon:"🚫"},
+      {name:"Score",plugin:"LeastAllocated",icon:"📊"},{name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:5, title:"Pod Anti-Affinity", tag:"PodAntiAffinity · Filter",
+    desc:"이미 같은 라벨 Pod가 있는 노드를 피합니다. required 설정 시 해당 노드는 Filter에서 탈락합니다.",
+    nodes:[
+      {name:"node-01",labels:{zone:"zone-a"},cpu:30,mem:35,cpuCap:"8000m",memCap:"16Gi",pods:["frontend-1"],existingLabels:{app:"frontend"}},
+      {name:"node-02",labels:{zone:"zone-b"},cpu:25,mem:28,cpuCap:"8000m",memCap:"16Gi",pods:["frontend-2"],existingLabels:{app:"frontend"}},
+      {name:"node-03",labels:{zone:"zone-a"},cpu:15,mem:20,cpuCap:"8000m",memCap:"16Gi",pods:[],existingLabels:{}},
+      {name:"node-04",labels:{zone:"zone-b"},cpu:20,mem:22,cpuCap:"8000m",memCap:"16Gi",pods:[],existingLabels:{}}
+    ],
+    pod:{name:"frontend-3",image:"nginx:1.21",cpu:"200m",mem:"256Mi",antiAffinityLabel:{app:"frontend"},description:"같은 노드에 frontend Pod 존재 시 배치 금지"},
+    phases:[
+      {name:"PreFilter",plugin:"InterPodAffinity",icon:"🔍"},{name:"Filter",plugin:"InterPodAffinity (AntiAffinity 검사)",icon:"🚫"},
+      {name:"Score",plugin:"LeastAllocated",icon:"📊"},{name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:6, title:"Taint / Toleration", tag:"TaintToleration · Filter",
+    desc:"노드 Taint를 Toleration으로 허용하지 않는 Pod는 배치 불가합니다. Effect별 동작이 다릅니다.",
+    nodes:[
+      {name:"master-node",labels:{role:"master"},taint:{key:"node-role.kubernetes.io/master",value:"",effect:"NoSchedule"},cpu:20,mem:25,cpuCap:"4000m",memCap:"8Gi",pods:["kube-apiserver"]},
+      {name:"gpu-dedicated",labels:{gpu:"true"},taint:{key:"dedicated",value:"gpu",effect:"NoSchedule"},cpu:40,mem:30,cpuCap:"32000m",memCap:"128Gi",pods:["gpu-job-1"]},
+      {name:"spot-node-1",labels:{spot:"true"},taint:{key:"spot",value:"true",effect:"PreferNoSchedule"},cpu:10,mem:15,cpuCap:"8000m",memCap:"16Gi",pods:[]},
+      {name:"worker-1",labels:{role:"worker"},cpu:35,mem:40,cpuCap:"8000m",memCap:"16Gi",pods:["app-1","app-2"]},
+      {name:"worker-2",labels:{role:"worker"},cpu:25,mem:30,cpuCap:"8000m",memCap:"16Gi",pods:["app-3"]}
+    ],
+    pod:{name:"gpu-ml-pod",image:"pytorch/pytorch:2.0.0",cpu:"4000m",mem:"16Gi",
+      tolerations:[{key:"dedicated",operator:"Equal",value:"gpu",effect:"NoSchedule"}],
+      description:"dedicated=gpu:NoSchedule Toleration 보유"},
+    phases:[
+      {name:"PreFilter",plugin:"TaintToleration",icon:"🔍"},{name:"Filter",plugin:"TaintToleration (NoSchedule 검사)",icon:"🚫"},
+      {name:"Score",plugin:"TaintToleration (PreferNoSchedule 감점)",icon:"📊"},{name:"Score",plugin:"LeastAllocated",icon:"📊"},
+      {name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:7, title:"Topology Spread + ReplicaSet", tag:"TopologySpread · Score",
+    desc:"maxSkew 제약으로 Zone 간 Pod 수 편차를 제한합니다. 3개 Zone 균등 분산을 시뮬레이션합니다.",
+    nodes:[
+      {name:"zone-a-node-1",labels:{"topology.kubernetes.io/zone":"zone-a"},cpu:40,mem:35,cpuCap:"8000m",memCap:"16Gi",pods:["rs-pod-1"]},
+      {name:"zone-a-node-2",labels:{"topology.kubernetes.io/zone":"zone-a"},cpu:30,mem:28,cpuCap:"8000m",memCap:"16Gi",pods:[]},
+      {name:"zone-b-node-1",labels:{"topology.kubernetes.io/zone":"zone-b"},cpu:25,mem:30,cpuCap:"8000m",memCap:"16Gi",pods:["rs-pod-2"]},
+      {name:"zone-b-node-2",labels:{"topology.kubernetes.io/zone":"zone-b"},cpu:20,mem:22,cpuCap:"8000m",memCap:"16Gi",pods:[]},
+      {name:"zone-c-node-1",labels:{"topology.kubernetes.io/zone":"zone-c"},cpu:15,mem:18,cpuCap:"8000m",memCap:"16Gi",pods:[]}
+    ],
+    pod:{name:"rs-webapp",image:"webapp:v1.0",cpu:"200m",mem:"256Mi",topologyKey:"topology.kubernetes.io/zone",maxSkew:1,description:"maxSkew:1, 3 Zone 균등 분산"},
+    phases:[
+      {name:"PreFilter",plugin:"PodTopologySpread",icon:"🔍"},{name:"Filter",plugin:"PodTopologySpread (maxSkew 검사)",icon:"🚫"},
+      {name:"Score",plugin:"PodTopologySpread",icon:"📊"},{name:"Score",plugin:"LeastAllocated",icon:"📊"},
+      {name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  },
+  {
+    id:8, title:"Resource Fit", tag:"NodeResourcesFit · Filter",
+    desc:"Pod CPU/Memory 요청이 노드 가용 용량 초과 시 Filter에서 탈락합니다.",
+    nodes:[
+      {name:"small-node-1",labels:{size:"small"},cpu:85,mem:80,cpuCap:"2000m",memCap:"4Gi",pods:["app-1","app-2","app-3"]},
+      {name:"small-node-2",labels:{size:"small"},cpu:90,mem:88,cpuCap:"2000m",memCap:"4Gi",pods:["app-4","app-5"]},
+      {name:"medium-node-1",labels:{size:"medium"},cpu:55,mem:60,cpuCap:"8000m",memCap:"16Gi",pods:["svc-1"]},
+      {name:"large-node-1",labels:{size:"large"},cpu:20,mem:25,cpuCap:"32000m",memCap:"64Gi",pods:[]},
+      {name:"large-node-2",labels:{size:"large"},cpu:15,mem:20,cpuCap:"32000m",memCap:"64Gi",pods:[]}
+    ],
+    pod:{name:"heavy-workload",image:"spark:3.3.0",cpuRequestM:4000,memRequestGi:8,cpu:"4000m",mem:"8Gi",description:"CPU 4000m, Memory 8Gi 요청"},
+    phases:[
+      {name:"PreFilter",plugin:"NodeResourcesFit",icon:"🔍"},{name:"Filter",plugin:"NodeResourcesFit (CPU/Mem 검사)",icon:"🚫"},
+      {name:"Score",plugin:"LeastAllocated",icon:"📊"},{name:"Score",plugin:"LeastRequestedPriority",icon:"📊"},
+      {name:"NormalizeScore",plugin:"",icon:"📐"},{name:"Bind",plugin:"DefaultBinder",icon:"🔗"}
+    ]
+  }
+];
+
+// ══════════════════════════════════════════════════════════════
+// YAML GENERATION (liveScenario → text)
+// ══════════════════════════════════════════════════════════════
+function generatePodYaml(sc) {
+  const p = sc.pod;
+  let y = `apiVersion: v1
+kind: Pod
+metadata:
+  name: ${p.name}
+  labels:
+    app: ${p.name.split('-')[0]}
+spec:
+  containers:
+  - name: main
+    image: ${p.image}
+    resources:
+      requests:
+        cpu: "${p.cpu || '200m'}"
+        memory: "${p.mem || '256Mi'}"`;
+  if (p.gpu) y += `\n        nvidia.com/gpu: "${p.gpu}"`;
+
+  // nodeSelector
+  if (p.nodeSelector) {
+    y += `\n  nodeSelector:`;
+    Object.entries(p.nodeSelector).forEach(([k,v]) => y += `\n    ${k}: "${v}"`);
+  }
+  // affinity: required zone
+  if (p.requiredZone) {
+    y += `\n  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values: ["${p.requiredZone}"]`;
+  }
+  // affinity: preferred accelerator
+  if (p.preferredAccelerator) {
+    y += `\n  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: accelerator
+            operator: In
+            values: ["${p.preferredAccelerator}"]`;
+  }
+  // affinity: preferred storage
+  if (p.preferredStorage) {
+    y += `\n  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: ${p.ssdWeight || 80}
+        preference:
+          matchExpressions:
+          - key: storage-type
+            operator: In
+            values: ["${p.preferredStorage}"]`;
+  }
+  // anti-affinity
+  if (p.antiAffinityLabel) {
+    const entries = Object.entries(p.antiAffinityLabel).map(([k,v]) => `          ${k}: ${v}`).join('\n');
+    y += `\n  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+${entries}
+        topologyKey: kubernetes.io/hostname`;
+  }
+  // tolerations
+  if (p.tolerations && p.tolerations.length) {
+    y += `\n  tolerations:`;
+    p.tolerations.forEach(t => {
+      y += `\n  - key: "${t.key}"
+    operator: "${t.operator}"
+    value: "${t.value}"
+    effect: "${t.effect}"`;
+    });
+  }
+  // topologySpreadConstraints
+  if (p.topologyKey) {
+    y += `\n  topologySpreadConstraints:
+  - maxSkew: ${p.maxSkew || 1}
+    topologyKey: ${p.topologyKey}
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app: ${p.name.split('-')[0]}`;
+  }
+  // resource fit
+  if (p.cpuRequestM) {
+    y = y.replace(`cpu: "${p.cpu}"`, `cpu: "${p.cpuRequestM}m"`);
+  }
+  return y;
+}
+
+function generateNodeYaml(n) {
+  let y = `apiVersion: v1
+kind: Node
+metadata:
+  name: ${n.name}
+  labels:`;
+  Object.entries(n.labels).forEach(([k,v]) => y += `\n    ${k}: "${v}"`);
+  if (n.taint) {
+    y += `\nspec:
+  taints:
+  - key: "${n.taint.key}"
+    value: "${n.taint.value}"
+    effect: "${n.taint.effect}"`;
+  }
+  y += `\nstatus:
+  capacity:
+    cpu: "${n.cpuCap}"
+    memory: "${n.memCap}"`;
+  if (n.gpuCap) y += `\n    nvidia.com/gpu: "${n.gpuCap}"`;
+  y += `\n  allocatable:
+    cpu: "${n.cpuCap}"
+    memory: "${n.memCap}"`;
+  if (n.gpuCap) y += `\n    nvidia.com/gpu: "${n.gpuCap}"`;
+  return y;
+}
+
+// ══════════════════════════════════════════════════════════════
+// YAML PARSING (text → liveScenario mutations)
+// ══════════════════════════════════════════════════════════════
+
+// Minimal YAML parser — supports our structured manifests
+// key: value, "quoted", nested objects, and list items (- key: val)
+function parseYamlSimple(text) {
+  const lines = text.split('\n');
+
+  function getIndent(line) { return line.search(/\S/); }
+
+  // Recursive descent over a slice of lines starting at `start`
+  // Returns { value, nextLine }
+  function parseBlock(lines, start, baseIndent) {
+    const obj = {};
+    let arr = null;  // if we detect list context
+    let i = start;
+
+    while (i < lines.length) {
+      const raw = lines[i];
+      if (!raw.trim() || raw.trim().startsWith('#')) { i++; continue; }
+      const ind = getIndent(raw);
+      if (ind < baseIndent) break;  // dedented — belongs to parent
+      const trimmed = raw.trim();
+
+      if (trimmed.startsWith('- ')) {
+        // List item with inline content
+        if (!arr) arr = [];
+        const rest = trimmed.slice(2).trim();
+        if (rest.includes(': ')) {
+          // Could be first key of an inline object
+          const itemObj = {};
+          const ci = rest.indexOf(': ');
+          const k = rest.slice(0, ci).trim();
+          const v = rest.slice(ci + 2).trim().replace(/^["']|["']$/g, '');
+          itemObj[k] = v;
+          // Check next lines for continuation at deeper indent
+          let j = i + 1;
+          while (j < lines.length) {
+            const nraw = lines[j];
+            if (!nraw.trim() || nraw.trim().startsWith('#')) { j++; continue; }
+            const nind = getIndent(nraw);
+            if (nind <= ind) break;
+            const nt = nraw.trim();
+            if (!nt.startsWith('- ') && nt.includes(': ')) {
+              const nci = nt.indexOf(': ');
+              const nk = nt.slice(0, nci).trim();
+              const nv = nt.slice(nci + 2).trim().replace(/^["']|["']$/g, '');
+              if (nv === '') {
+                // nested object under this key
+                const sub = parseBlock(lines, j + 1, nind + 1);
+                itemObj[nk] = sub.value;
+                j = sub.nextLine;
+                continue;
+              }
+              itemObj[nk] = nv;
+            } else if (nt.startsWith('- ')) {
+              break;
+            }
+            j++;
+          }
+          arr.push(itemObj);
+          i = j;
+        } else {
+          arr.push(rest.replace(/^["']|["']$/g, ''));
+          i++;
+        }
+      } else if (trimmed.startsWith('-')) {
+        // bare dash — start of complex list item
+        if (!arr) arr = [];
+        const sub = parseBlock(lines, i + 1, ind + 2);
+        arr.push(sub.value);
+        i = sub.nextLine;
+      } else if (trimmed.includes(': ') || trimmed.endsWith(':')) {
+        // key: value  or  key:
+        const ci = trimmed.indexOf(': ');
+        let k, v;
+        if (ci === -1) {
+          k = trimmed.slice(0, -1).trim();
+          v = null;
+        } else {
+          k = trimmed.slice(0, ci).trim();
+          v = trimmed.slice(ci + 2).trim().replace(/^["']|["']$/g, '');
+        }
+        if (v === null || v === '') {
+          // peek next line — if deeper, it's a nested block
+          let j = i + 1;
+          while (j < lines.length && (!lines[j].trim() || lines[j].trim().startsWith('#'))) j++;
+          if (j < lines.length && getIndent(lines[j]) > ind) {
+            const sub = parseBlock(lines, j, getIndent(lines[j]));
+            obj[k] = sub.arr || sub.value;
+            i = sub.nextLine;
+          } else {
+            obj[k] = v === null ? '' : v;
+            i++;
+          }
+        } else {
+          obj[k] = v;
+          i++;
+        }
+      } else {
+        i++;
+      }
+    }
+    return { value: obj, arr, nextLine: i };
+  }
+
+  // Find first non-empty line's indent as base
+  const firstReal = lines.findIndex(l => l.trim() && !l.trim().startsWith('#'));
+  const base = firstReal >= 0 ? getIndent(lines[firstReal]) : 0;
+  const result = parseBlock(lines, 0, base);
+  return result.value;
+}
+
+// Normalize a "values" field — handles ["x"], [x], string, or array
+function extractValues(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(v => String(v).replace(/^["'\[\]\s]+|["'\[\]\s]+$/g,''));
+  const s = String(raw).trim().replace(/^\[|\]$/g,'');
+  return s.split(',').map(v => v.replace(/^["'\s]+|["'\s]+$/g,'').trim()).filter(Boolean);
+}
+
+// Apply parsed pod YAML back to liveScenario.pod
+function applyPodYaml(text) {
+  const errors = [];
+  let parsed;
+  try { parsed = parseYamlSimple(text); } catch(e) { return [`YAML 파싱 오류: ${e.message}`]; }
+
+  const p = liveScenario.pod;
+  const spec = parsed.spec || {};
+  const containers = spec.containers;
+  if (!containers) { errors.push("spec.containers 가 없습니다"); return errors; }
+
+  // name & image
+  if (parsed.metadata?.name) p.name = parsed.metadata.name;
+  const c0 = Array.isArray(containers) ? containers[0] : containers;
+  if (c0?.image) p.image = c0.image;
+
+  // resources
+  const req = c0?.resources?.requests || {};
+  if (req.cpu) p.cpu = req.cpu;
+  if (req.memory) p.mem = req.memory;
+  if (req['nvidia.com/gpu']) p.gpu = req['nvidia.com/gpu'];
+
+  // nodeSelector
+  if (spec.nodeSelector) {
+    p.nodeSelector = {};
+    Object.entries(spec.nodeSelector).forEach(([k,v]) => p.nodeSelector[k] = String(v).replace(/^["']|["']$/g,''));
+    p.description = `nodeSelector: ${Object.entries(p.nodeSelector).map(([k,v])=>`${k}=${v}`).join(', ')}`;
+  }
+
+  // affinity
+  const aff = spec.affinity || {};
+  const na = aff.nodeAffinity || {};
+
+  // required nodeAffinity
+  const reqAff = na.requiredDuringSchedulingIgnoredDuringExecution;
+  if (reqAff) {
+    const terms = reqAff.nodeSelectorTerms;
+    const term = Array.isArray(terms) ? terms[0] : terms;
+    const exprs = term?.matchExpressions;
+    const expr = Array.isArray(exprs) ? exprs[0] : exprs;
+    if (expr?.key) {
+      const vals = extractValues(expr.values);
+      if (expr.key === 'topology.kubernetes.io/zone') {
+        p.requiredZone = vals[0];
+        p.description = `Zone 필수: ${vals[0]}`;
+      } else {
+        p.requiredNodeLabel = { key: expr.key, values: vals };
+        p.description = `required: ${expr.key} In [${vals.join(',')}]`;
+      }
+    }
+  }
+
+  // preferred nodeAffinity
+  const prefAff = na.preferredDuringSchedulingIgnoredDuringExecution;
+  if (prefAff) {
+    const prefArr = Array.isArray(prefAff) ? prefAff : [prefAff];
+    prefArr.forEach(pr => {
+      const exprs = pr?.preference?.matchExpressions;
+      const expr = Array.isArray(exprs) ? exprs[0] : exprs;
+      if (!expr?.key) return;
+      const vals = extractValues(expr.values);
+      if (expr.key === 'accelerator') {
+        p.preferredAccelerator = vals[0];
+        p.description = `accelerator=${vals[0]} 선호 (weight:${pr.weight||100})`;
+      } else if (expr.key === 'storage-type') {
+        p.preferredStorage = vals[0];
+        p.ssdWeight = parseInt(pr.weight || 80);
+        p.description = `storage-type=${vals[0]} 선호 (weight:${pr.weight||80})`;
+      }
+    });
+  }
+
+  // podAntiAffinity
+  const pa = aff.podAntiAffinity;
+  if (pa) {
+    const terms2 = pa.requiredDuringSchedulingIgnoredDuringExecution;
+    const t = Array.isArray(terms2) ? terms2[0] : terms2;
+    const ml = t?.labelSelector?.matchLabels;
+    if (ml) { p.antiAffinityLabel = ml; p.description = `AntiAffinity: ${JSON.stringify(ml)}`; }
+  }
+
+  // tolerations
+  if (spec.tolerations) {
+    const tols = Array.isArray(spec.tolerations) ? spec.tolerations : [spec.tolerations];
+    p.tolerations = tols.map(t => ({
+      key: String(t.key||'').replace(/^["']|["']$/g,''),
+      operator: String(t.operator||'Equal').replace(/^["']|["']$/g,''),
+      value: String(t.value||'').replace(/^["']|["']$/g,''),
+      effect: String(t.effect||'NoSchedule').replace(/^["']|["']$/g,'')
+    }));
+    p.description = `Tolerations: ${p.tolerations.map(t=>`${t.key}=${t.value}:${t.effect}`).join(', ')}`;
+  }
+
+  // topologySpreadConstraints
+  if (spec.topologySpreadConstraints) {
+    const tsc = Array.isArray(spec.topologySpreadConstraints) ? spec.topologySpreadConstraints[0] : spec.topologySpreadConstraints;
+    if (tsc?.maxSkew !== undefined) p.maxSkew = parseInt(tsc.maxSkew);
+    if (tsc?.topologyKey) p.topologyKey = String(tsc.topologyKey).replace(/^["']|["']$/g,'');
+    p.description = `maxSkew:${p.maxSkew}, topologyKey:${p.topologyKey}`;
+  }
+
+  // derive numeric request values for sim engine
+  if (p.cpu) {
+    const m = String(p.cpu).match(/^([\d.]+)m$/);
+    if (m) p.cpuRequestM = parseInt(m[1]);
+    else if (/^[\d.]+$/.test(p.cpu)) p.cpuRequestM = Math.round(parseFloat(p.cpu) * 1000);
+  }
+  if (p.mem) {
+    const gm = String(p.mem).match(/^([\d.]+)Gi$/);
+    if (gm) p.memRequestGi = parseFloat(gm[1]);
+    const mm = String(p.mem).match(/^([\d.]+)Mi$/);
+    if (mm) p.memRequestGi = parseFloat(mm[1]) / 1024;
+  }
+
+  return errors;
+}
+
+// Apply parsed node YAML back to liveScenario.nodes[i]
+function applyNodeYaml(text, nodeIndex) {
+  const errors = [];
+  let parsed;
+  try { parsed = parseYamlSimple(text); } catch(e) { return [`YAML 파싱 오류: ${e.message}`]; }
+
+  const n = liveScenario.nodes[nodeIndex];
+  if (!n) return ['노드를 찾을 수 없습니다'];
+
+  const strip = v => String(v||'').replace(/^["']|["']$/g,'');
+
+  if (parsed.metadata?.name) n.name = strip(parsed.metadata.name);
+
+  if (parsed.metadata?.labels) {
+    n.labels = {};
+    Object.entries(parsed.metadata.labels).forEach(([k,v]) => n.labels[strip(k)] = strip(v));
+  }
+
+  // taints
+  if (parsed.spec?.taints) {
+    const tArr = parsed.spec.taints;
+    const tList = Array.isArray(tArr) ? tArr : [tArr];
+    const t0 = tList[0];
+    if (t0 && t0.key) {
+      n.taint = { key: strip(t0.key), value: strip(t0.value||''), effect: strip(t0.effect||'NoSchedule') };
+    } else {
+      n.taint = null;
+    }
+  } else {
+    // If spec section absent or no taints key, remove taint
+    if (!text.includes('taints:')) n.taint = null;
+  }
+
+  // capacity
+  const cap = parsed.status?.capacity || {};
+  if (cap.cpu) n.cpuCap = strip(cap.cpu);
+  if (cap.memory) n.memCap = strip(cap.memory);
+  if (cap['nvidia.com/gpu']) n.gpuCap = strip(cap['nvidia.com/gpu']);
+
+  return errors;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SIMULATION ENGINE (reads from liveScenario)
+// ══════════════════════════════════════════════════════════════
+function runSimEngine(sc) {
+  const nodes = sc.nodes;
+  const pod = sc.pod;
+
+  // ── per-scenario filter+score logic ──────────────────────────
+  let filterResults, scores;
+
+  switch (sc.id) {
+    case 1: {
+      const sel = pod.nodeSelector || {};
+      filterResults = nodes.map(n => {
+        const match = Object.entries(sel).every(([k,v]) => n.labels[k] === v);
+        return { node: n.name, pass: match,
+          reason: match ? 'NodeSelector 매칭 ✓' : `${Object.entries(sel).map(([k,v])=>`${k}=${v}`).join(',')} 라벨 없음` };
+      });
+      break;
+    }
+    case 2: {
+      const gpuReq = parseInt(pod.gpu || pod.gpuRequest || 2);
+      filterResults = nodes.map(n => {
+        const hasGpu = n.labels['gpu'] === 'true';
+        const free = hasGpu ? (parseInt(n.gpuCap||0) - parseInt(n.gpuUsed||0)) : 0;
+        const pass = hasGpu && free >= gpuReq;
+        return { node: n.name, pass,
+          reason: !hasGpu ? 'GPU 없음' : free < gpuReq ? `GPU 잔여 ${free} < 요청 ${gpuReq}` : `GPU 잔여 ${free} ≥ ${gpuReq} ✓` };
+      });
+      break;
+    }
+    case 3: {
+      filterResults = nodes.map(n => ({ node: n.name, pass: true, reason: 'preferred only — 전체 통과' }));
+      break;
+    }
+    case 4: {
+      const reqZone = pod.requiredZone;
+      filterResults = nodes.map(n => {
+        const z = n.labels['topology.kubernetes.io/zone'];
+        const pass = z === reqZone;
+        return { node: n.name, pass, reason: pass ? `Zone=${z} 매칭 ✓` : `Zone ${z} ≠ ${reqZone}` };
+      });
+      break;
+    }
+    case 5: {
+      const aLabel = pod.antiAffinityLabel || {};
+      filterResults = nodes.map(n => {
+        const conflict = Object.entries(aLabel).every(([k,v]) =>
+          n.existingLabels && n.existingLabels[k] === v
+        );
+        return { node: n.name, pass: !conflict,
+          reason: conflict ? `Anti-Affinity 위반: ${JSON.stringify(aLabel)} 존재` : 'Anti-Affinity 통과 ✓' };
+      });
+      break;
+    }
+    case 6: {
+      const tols = pod.tolerations || [];
+      filterResults = nodes.map(n => {
+        if (!n.taint) return { node: n.name, pass: true, reason: 'Taint 없음' };
+        if (n.taint.effect === 'PreferNoSchedule') return { node: n.name, pass: true, reason: 'PreferNoSchedule — 배치 가능 (점수 감점)' };
+        // NoSchedule: check toleration
+        const tolerated = tols.some(t =>
+          t.key === n.taint.key &&
+          (t.operator === 'Exists' || t.value === n.taint.value) &&
+          t.effect === n.taint.effect
+        );
+        return { node: n.name, pass: tolerated,
+          reason: tolerated ? `Toleration 매칭: ${n.taint.key}=${n.taint.value} ✓` : `NoSchedule 미허용: ${n.taint.key}=${n.taint.value}` };
+      });
+      break;
+    }
+    case 7: {
+      const topoKey = pod.topologyKey || 'topology.kubernetes.io/zone';
+      const maxSkew = parseInt(pod.maxSkew || 1);
+      const zoneCounts = {};
+      nodes.forEach(n => {
+        const z = n.labels[topoKey];
+        if (z) zoneCounts[z] = (zoneCounts[z] || 0) + (n.pods?.length || 0);
+      });
+      const minCount = Math.min(...Object.values(zoneCounts));
+      filterResults = nodes.map(n => {
+        const z = n.labels[topoKey];
+        const cnt = zoneCounts[z] || 0;
+        const skew = cnt - minCount;
+        const pass = skew < maxSkew;
+        return { node: n.name, pass,
+          reason: pass ? `${z} 현재 ${cnt}개 — 배치 가능` : `${z} skew=${skew+1} > maxSkew=${maxSkew}` };
+      });
+      break;
+    }
+    case 8: {
+      const cpuReq = pod.cpuRequestM || parseInt((pod.cpu||'0').replace('m',''));
+      const memReq = pod.memRequestGi || parseFloat((pod.mem||'0').replace('Gi',''));
+      filterResults = nodes.map(n => {
+        const totalCpuM = parseInt(n.cpuCap) || parseInt(n.cpuCap?.replace('m','')) || 0;
+        // estimate free from usage %
+        const freeCpu = Math.round(totalCpuM * (1 - n.cpu/100));
+        const totalMemGi = parseFloat(n.memCap?.replace('Gi','')) || 0;
+        const freeMem = totalMemGi * (1 - n.mem/100);
+        const cpuOk = freeCpu >= cpuReq;
+        const memOk = freeMem >= memReq;
+        const pass = cpuOk && memOk;
+        let reason = pass ? `CPU ${freeCpu}m ✓, Mem ${freeMem.toFixed(1)}Gi ✓` :
+          (!cpuOk ? `CPU 부족: ${freeCpu}m < ${cpuReq}m` : `Mem 부족: ${freeMem.toFixed(1)}Gi < ${memReq}Gi`);
+        return { node: n.name, pass, reason };
+      });
+      break;
+    }
+    default:
+      filterResults = nodes.map(n => ({ node: n.name, pass: true, reason: '기본 통과' }));
+  }
+
+  // ── scoring ──────────────────────────────────────────────────
+  const passed = filterResults.filter(r => r.pass).map(r => r.node);
+  scores = passed.map(name => {
+    const n = nodes.find(x => x.name === name);
+    let s = Math.round((100-n.cpu)*0.5 + (100-n.mem)*0.3);
+    // bonuses
+    if (sc.id === 2 && n.labels['accelerator'] === pod.preferredAccelerator) s += 40;
+    if (sc.id === 3 && n.labels['storage-type'] === pod.preferredStorage) s += Math.round((pod.ssdWeight||80)*0.4);
+    if (sc.id === 6) {
+      if (n.taint?.effect === 'PreferNoSchedule') s -= 20;
+      if (n.labels['gpu'] === 'true') s += 30;
+    }
+    if (sc.id === 7) {
+      const topoKey = pod.topologyKey || 'topology.kubernetes.io/zone';
+      const zone = n.labels[topoKey];
+      const cnt = nodes.filter(x => x.labels[topoKey] === zone).reduce((a,x)=>(a+(x.pods?.length||0)),0);
+      s += (3 - cnt) * 15;
+    }
+    s = Math.max(0, Math.min(100, s));
+    return { node: name, score: s, plugin: pluginLabel(sc.id) };
+  });
+  scores.sort((a,b) => b.score - a.score);
+
+  return { filterResults, scores, winner: scores[0]?.node };
+}
+
+function pluginLabel(id) {
+  const m = {1:'LeastAllocated',2:'NodeAffinity+LeastAllocated',3:'NodeAffinity+LeastAllocated',
+    4:'LeastAllocated',5:'LeastAllocated',6:'TaintToleration+LeastAllocated',7:'PodTopologySpread+LeastAllocated',8:'LeastAllocated'};
+  return m[id] || 'LeastAllocated';
+}
+
+// ══════════════════════════════════════════════════════════════
+// UI — SELECT SCENARIO
+// ══════════════════════════════════════════════════════════════
+function selectScenario(id) {
+  currentScenario = scenarios.find(s => s.id === id);
+  // deep clone so editing doesn't corrupt the template
+  liveScenario = JSON.parse(JSON.stringify(currentScenario));
+  yamlDirty = false;
+
+  document.querySelectorAll('.scenario-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`sc-item-${id}`).classList.add('active');
+  document.getElementById('sc-title').textContent = `시나리오 ${id}: ${currentScenario.title}`;
+  document.getElementById('sc-desc').textContent = currentScenario.desc;
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('reset-btn').style.display = 'inline-block';
+
+  renderCluster(liveScenario.nodes, null);
+  buildYamlEditor(liveScenario);
+  resetLogs();
+  document.getElementById('sim-status').textContent = '대기 중';
+  updatePipelineIdle();
+}
+
+// ══════════════════════════════════════════════════════════════
+// YAML EDITOR
+// ══════════════════════════════════════════════════════════════
+function buildYamlEditor(sc) {
+  const wrap = document.getElementById('yaml-editor-wrap');
+
+  // Build file options
+  const files = [{ value: 'pod', label: `Pod: ${sc.pod.name}` }];
+  sc.nodes.forEach((n, i) => files.push({ value: `node-${i}`, label: `Node: ${n.name}` }));
+
+  activeYamlFile = 'pod';
+
+  wrap.innerHTML = `
+    <div class="yaml-toolbar">
+      <label>파일:</label>
+      <select class="file-select" id="yaml-file-select" onchange="switchYamlFile(this.value)">
+        ${files.map(f => `<option value="${f.value}">${f.label}</option>`).join('')}
+      </select>
+      <button class="format-btn" onclick="formatYaml()" title="인덴트 정리">⇥ 정렬</button>
+      <button class="format-btn" onclick="resetYamlFile()" title="원본으로 되돌리기">↺ 원본</button>
+      <button class="apply-btn" id="apply-btn" onclick="applyYaml()">✓ 적용</button>
+    </div>
+    <div class="yaml-editor-area">
+      <div class="line-nums" id="line-nums"></div>
+      <textarea class="yaml-textarea" id="yaml-textarea" spellcheck="false"
+        onkeydown="handleYamlKey(event)" oninput="onYamlInput()"></textarea>
+    </div>
+    <div class="yaml-status-bar">
+      <span id="yaml-cursor">줄 1, 열 1</span>
+      <span id="yaml-lines-count">0줄</span>
+      <span id="yaml-status-msg" class="ok">준비</span>
+      <span id="yaml-dirty-indicator"></span>
+    </div>
+  `;
+
+  loadYamlFile('pod');
+
+  // key: ctrl/cmd+S = apply
+  const ta2 = document.getElementById('yaml-textarea');
+  ta2.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); applyYaml(); }
+  });
+  ta2.addEventListener('click', updateCursor);
+  ta2.addEventListener('keyup', updateCursor);
+  ta2.addEventListener('scroll', syncScroll);
+}
+
+function loadYamlFile(fileKey) {
+  activeYamlFile = fileKey;
+  let text = '';
+  if (fileKey === 'pod') {
+    text = generatePodYaml(liveScenario);
+  } else {
+    const idx = parseInt(fileKey.replace('node-',''));
+    text = generateNodeYaml(liveScenario.nodes[idx]);
+  }
+  const ta = document.getElementById('yaml-textarea');
+  if (ta) {
+    ta.value = text;
+    updateLineNums();
+    setYamlStatus('ok', '준비');
+    yamlDirty = false;
+    updateDirtyIndicator();
+  }
+}
+
+function switchYamlFile(val) {
+  if (yamlDirty) {
+    showToast('warn', '⚠ 미적용 변경사항이 있습니다. 적용 후 파일을 전환하세요.');
+  }
+  loadYamlFile(val);
+}
+
+function onYamlInput() {
+  updateLineNums();
+  yamlDirty = true;
+  updateDirtyIndicator();
+  // quick syntax check
+  const ta = document.getElementById('yaml-textarea');
+  const text = ta.value;
+  const issues = quickLint(text);
+  setYamlStatus(issues.length ? 'err' : 'changed', issues.length ? issues[0] : '변경됨 — Ctrl+S 또는 ✓ 적용');
+}
+
+function quickLint(text) {
+  const errs = [];
+  const lines = text.split('\n');
+  lines.forEach((l, i) => {
+    if (l.includes('\t')) errs.push(`줄 ${i+1}: 탭 대신 스페이스를 사용하세요`);
+  });
+  return errs;
+}
+
+function syncScroll() {
+  const ta = document.getElementById('yaml-textarea');
+  const ln = document.getElementById('line-nums');
+  if (ln) ln.scrollTop = ta.scrollTop;
+}
+
+function updateLineNums() {
+  const ta = document.getElementById('yaml-textarea');
+  const ln = document.getElementById('line-nums');
+  if (!ta || !ln) return;
+  const count = ta.value.split('\n').length;
+  document.getElementById('yaml-lines-count').textContent = `${count}줄`;
+  ln.innerHTML = Array.from({length: count}, (_,i) =>
+    `<div class="line-num">${i+1}</div>`
+  ).join('');
+  ln.scrollTop = ta.scrollTop;
+}
+
+function updateCursor() {
+  const ta = document.getElementById('yaml-textarea');
+  const cur = document.getElementById('yaml-cursor');
+  if (!ta || !cur) return;
+  const text = ta.value.substring(0, ta.selectionStart);
+  const lines = text.split('\n');
+  cur.textContent = `줄 ${lines.length}, 열 ${lines[lines.length-1].length + 1}`;
+}
+
+function setYamlStatus(cls, msg) {
+  const el = document.getElementById('yaml-status-msg');
+  if (!el) return;
+  el.className = cls;
+  el.textContent = msg;
+}
+
+function updateDirtyIndicator() {
+  const el = document.getElementById('yaml-dirty-indicator');
+  if (!el) return;
+  el.textContent = yamlDirty ? '● 미저장' : '';
+  el.style.color = 'var(--amber)';
+}
+
+function handleYamlKey(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ta = e.target;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + 2;
+    onYamlInput();
+  }
+}
+
+function formatYaml() {
+  // Simple: normalize indentation (2 spaces)
+  const ta = document.getElementById('yaml-textarea');
+  const lines = ta.value.split('\n');
+  const cleaned = lines.map(l => l.replace(/\t/g, '  ')).join('\n');
+  ta.value = cleaned;
+  onYamlInput();
+  showToast('ok', '인덴트 정규화 완료');
+}
+
+function resetYamlFile() {
+  const fileKey = document.getElementById('yaml-file-select')?.value || 'pod';
+  // Reload from original template
+  const origSc = JSON.parse(JSON.stringify(currentScenario));
+  if (fileKey === 'pod') {
+    liveScenario.pod = origSc.pod;
+  } else {
+    const idx = parseInt(fileKey.replace('node-',''));
+    liveScenario.nodes[idx] = origSc.nodes[idx];
+  }
+  loadYamlFile(fileKey);
+  renderCluster(liveScenario.nodes, null);
+  showToast('warn', '원본으로 되돌렸습니다');
+}
+
+function applyYaml() {
+  const ta = document.getElementById('yaml-textarea');
+  if (!ta) return;
+  const text = ta.value;
+  const fileKey = activeYamlFile;
+
+  let errors = [];
+  if (fileKey === 'pod') {
+    errors = applyPodYaml(text);
+  } else {
+    const idx = parseInt(fileKey.replace('node-',''));
+    errors = applyNodeYaml(text, idx);
+  }
+
+  if (errors.length) {
+    setYamlStatus('err', errors[0]);
+    showToast('err', `오류: ${errors[0]}`);
+    return;
+  }
+
+  yamlDirty = false;
+  updateDirtyIndicator();
+  setYamlStatus('ok', '✓ 적용됨 — 클러스터 뷰 업데이트');
+  showToast('ok', '✓ YAML 적용 완료. 스케줄링 실행을 눌러 시뮬레이션하세요.');
+
+  // Update file selector labels if names changed
+  const sel = document.getElementById('yaml-file-select');
+  if (sel) {
+    const files = [{ value: 'pod', label: `Pod: ${liveScenario.pod.name}` }];
+    liveScenario.nodes.forEach((n,i) => files.push({ value: `node-${i}`, label: `Node: ${n.name}` }));
+    const cur = sel.value;
+    sel.innerHTML = files.map(f => `<option value="${f.value}"${f.value===cur?' selected':''}>${f.label}</option>`).join('');
+  }
+
+  // Refresh cluster view (no sim result yet)
+  renderCluster(liveScenario.nodes, null);
+  // Update pending pod card description
+  document.getElementById('sc-desc').textContent =
+    `${currentScenario.desc} | 현재 Pod: ${liveScenario.pod.name} (${liveScenario.pod.cpu}, ${liveScenario.pod.mem})`;
+
+  // Reset simulation state
+  resetSim(true);
+}
+
+function showToast(type, msg) {
+  const existing = document.getElementById('yaml-toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.id = 'yaml-toast';
+  t.className = `yaml-toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ══════════════════════════════════════════════════════════════
+// CLUSTER RENDER
+// ══════════════════════════════════════════════════════════════
+function renderCluster(nodes, simResult) {
+  const cv = document.getElementById('cluster-view');
+  const filterMap = {};
+  if (simResult) simResult.filterResults.forEach(r => filterMap[r.node] = r);
+
+  const pod = liveScenario.pod;
+  let html = `
+    <div class="pending-card">
+      <span style="font-size:18px">⏳</span>
+      <div style="flex:1">
+        <div class="pending-name">${pod.name}</div>
+        <div class="pending-sub">${pod.image} · CPU:${pod.cpu||'?'} · Mem:${pod.mem||'?'}
+          ${pod.description ? ` · <span style="color:var(--blue)">${pod.description}</span>` : ''}
+        </div>
+      </div>
+      <span class="status-pill ${simResult?.winner ? 'running' : 'pending'}">${simResult?.winner ? 'Running' : 'Pending'}</span>
+    </div>`;
+
+  if (liveScenario.id === 7 && simResult) {
+    const topoKey = pod.topologyKey || 'topology.kubernetes.io/zone';
+    const zones = {};
+    nodes.forEach(n => {
+      const z = n.labels[topoKey];
+      if (z) zones[z] = (zones[z]||0) + (n.pods?.length||0);
+    });
+    if (simResult.winner) {
+      const wn = nodes.find(n => n.name === simResult.winner);
+      const wz = wn?.labels[topoKey];
+      if (wz) zones[wz]++;
+    }
+    const maxC = Math.max(...Object.values(zones));
+    const minC = Math.min(...Object.values(zones));
+    html += `<div class="spread-box">
+      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Zone 분산 (${topoKey.split('/').pop()})</div>
+      ${Object.entries(zones).map(([z,c])=>`
+        <div class="spread-row"><span style="color:var(--text2)">${z}</span><span style="color:var(--blue);font-weight:700">${c}</span></div>
+        <div class="spread-bar-bg" style="margin-bottom:4px"><div class="spread-bar" style="width:${maxC>0?Math.round(c/maxC*100):0}%"></div></div>
+      `).join('')}
+      <div style="font-size:9px;color:var(--text3)">Skew: ${maxC-minC} / maxSkew: ${pod.maxSkew||1}</div>
+    </div>`;
+  }
+
+  html += `<div class="cluster-label">노드 (${nodes.length})</div><div class="nodes-grid">`;
+
+  nodes.forEach(n => {
+    const fr = filterMap[n.name];
+    const scoreEntry = simResult?.scores?.find(s => s.node === n.name);
+    const isWinner = simResult?.winner === n.name;
+    let cls = 'node-card';
+    if (isWinner) cls += ' winner';
+    else if (fr && !fr.pass) cls += ' filtered-out';
+    else if (fr && fr.pass && !isWinner) cls += ' highlighted';
+
+    const labelHtml = Object.entries(n.labels).map(([k,v]) => {
+      let lc = 'nlabel';
+      const sk = k.includes('/') ? k.split('/').pop() : k;
+      if (k.includes('zone') || v.includes('zone') || v.match(/ap-|us-|eu-/)) lc += ' zone';
+      else if (k === 'gpu' || (k === 'accelerator')) lc += ' gpu';
+      else if (v === 'ssd') lc += ' ssd';
+      else if (['tier','role','size','env'].includes(k)) lc += ' key';
+      return `<span class="${lc}" title="${k}=${v}">${sk}=${v}</span>`;
+    }).join('');
+
+    const taintHtml = n.taint ? `<span class="nlabel taint">⚠${n.taint.effect}</span>` : '';
+    const gpuHtml = n.gpuCap ? `<span class="nlabel gpu">GPU${n.gpuUsed||0}/${n.gpuCap}</span>` : '';
+
+    let scoreBadge = '';
+    if (scoreEntry) {
+      const lv = scoreEntry.score >= 70 ? 'h' : scoreEntry.score >= 40 ? 'm' : 'l';
+      scoreBadge = `<div class="score-badge ${lv}">${scoreEntry.score}</div>`;
+    }
+
+    const pods = (n.pods||[]).map(p => `<div class="pod-dot" title="${p}">●</div>`).join('');
+    const newPod = isWinner ? `<div class="pod-dot new-pod" title="${pod.name}">★</div>` : '';
+
+    const frDiv = fr ? `<div class="filter-reason ${fr.pass?'pass':'fail'}">${fr.pass?'✓':'✗'} ${fr.reason}</div>` : '';
+
+    html += `<div class="${cls}">
+      ${scoreBadge}
+      <div class="node-header"><span class="node-name">${n.name}</span><div class="node-dot ${n.taint?'tainted':''}"></div></div>
+      <div class="node-labels">${labelHtml}${taintHtml}${gpuHtml}</div>
+      <div class="res-row"><span class="res-lbl">CPU</span><div class="res-bg"><div class="res-bar cpu" style="width:${n.cpu}%"></div></div><span class="res-val">${n.cpu}%/${n.cpuCap}</span></div>
+      <div class="res-row"><span class="res-lbl">MEM</span><div class="res-bg"><div class="res-bar mem" style="width:${n.mem}%"></div></div><span class="res-val">${n.mem}%/${n.memCap}</span></div>
+      <div class="pods-area">${pods}${newPod}</div>
+      ${frDiv}
+      ${isWinner ? '<div style="font-size:9px;color:var(--green);font-weight:700;margin-top:3px">🎯 선택됨</div>' : ''}
+    </div>`;
+  });
+
+  html += '</div>';
+  cv.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════
+// PIPELINE / LOGS / SCORES
+// ══════════════════════════════════════════════════════════════
+function updatePipelineIdle() {
+  if (!liveScenario) return;
+  document.getElementById('tab-pipeline').innerHTML = `
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Scheduling Pipeline</div>
+    <div class="pipeline">
+      ${liveScenario.phases.map(p => `
+        <div class="pp">
+          <span class="pp-icon">${p.icon}</span>
+          <span class="pp-name">${p.name}</span>
+          <span class="pp-plugin">${p.plugin}</span>
+          <span class="pp-result idle">대기</span>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--text3)">▶ 실행 버튼을 누르세요</div>
+  `;
+}
+
+async function runSimulation() {
+  if (!liveScenario || simRunning) return;
+  simRunning = true;
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('sim-status').textContent = '실행 중...';
+  resetLogs();
+  renderCluster(liveScenario.nodes, null);
+
+  const simResult = runSimEngine(liveScenario);
+  const phases = liveScenario.phases;
+  const delay = ms => new Promise(r => setTimeout(r, ms / simSpeed));
+
+  for (let i = 0; i < phases.length; i++) {
+    const p = phases[i];
+    // render pipeline with running state
+    document.getElementById('tab-pipeline').innerHTML = `
+      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Scheduling Pipeline</div>
+      <div class="pipeline">
+        ${phases.map((ph, j) => {
+          let cls = 'pp';
+          let rt = '대기', rc = 'idle';
+          if (j < i)  { cls += ' pass'; rt = 'PASS'; rc = 'pass'; }
+          if (j === i){ cls += ' running'; rt = '실행중'; rc = 'idle'; }
+          return `<div class="${cls}">
+            <span class="pp-icon">${ph.icon}</span>
+            <span class="pp-name">${ph.name}</span>
+            <span class="pp-plugin">${ph.plugin}</span>
+            <span class="pp-result ${rc}">${rt}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    await delay(550);
+    addLog('i', `[${p.name}]`, p.plugin || '');
+
+    if (p.name.includes('Filter')) {
+      await delay(350);
+      simResult.filterResults.forEach(fr =>
+        addLog(fr.pass ? 'p' : 'f', fr.pass ? '✓' : '✗', `${fr.node}: ${fr.reason}`)
+      );
+    }
+    if (p.name === 'Score') {
+      await delay(250);
+      simResult.scores.forEach(s => addLog('s', `↑${s.score}`, `${s.node} (${s.plugin})`));
+    }
+    if (p.name === 'Bind') {
+      await delay(200);
+      addLog('p', '🎯 Bind', `${liveScenario.pod.name} → ${simResult.winner}`);
+    }
+  }
+
+  // Final pipeline
+  document.getElementById('tab-pipeline').innerHTML = `
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Scheduling Pipeline</div>
+    <div class="pipeline">
+      ${phases.map(ph => `
+        <div class="pp pass">
+          <span class="pp-icon">${ph.icon}</span>
+          <span class="pp-name">${ph.name}</span>
+          <span class="pp-plugin">${ph.plugin}</span>
+          <span class="pp-result pass">PASS</span>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:8px;padding:7px 9px;border-radius:5px;background:var(--green-bg);border:1px solid var(--green-dim);font-size:11px;font-weight:700;color:var(--green)">
+      🎯 완료: ${liveScenario.pod.name} → ${simResult.winner}
+    </div>
+    <div class="sec-div">Filter 결과</div>
+    <div class="fr-table">
+      ${simResult.filterResults.map(fr => `
+        <div class="fr-row">
+          <span class="fr-name" title="${fr.node}">${fr.node}</span>
+          <span class="fr-chip ${fr.pass?'pass':'fail'}">${fr.pass?'PASS':'FAIL'}</span>
+          <span class="fr-reason">${fr.reason}</span>
+        </div>`).join('')}
+    </div>
+  `;
+
+  renderScoreTable(simResult);
+  renderCluster(liveScenario.nodes, simResult);
+  addLog('p', '✅', `${liveScenario.pod.name} → ${simResult.winner} 배치 완료`);
+  document.getElementById('sim-status').textContent = `완료 → ${simResult.winner}`;
+  simRunning = false;
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('run-btn').textContent = '▶ 다시 실행';
+}
+
+function renderScoreTable(simResult) {
+  const sc = document.getElementById('score-content');
+  if (!simResult.scores?.length) { sc.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:8px">Score 없음</div>'; return; }
+  const max = Math.max(...simResult.scores.map(s=>s.score));
+  sc.innerHTML = `
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Score 결과</div>
+    <table class="score-tbl">
+      <thead><tr><th>노드</th><th>점수</th><th>비율</th><th>플러그인</th></tr></thead>
+      <tbody>
+        ${simResult.scores.map((s,i)=>`
+          <tr class="${i===0?'winner-row':''}">
+            <td>${i===0?'🏆 ':''}<strong>${s.node}</strong></td>
+            <td>${s.score}</td>
+            <td><div class="mini-bar-bg"><div class="mini-bar" style="width:${Math.round(s.score/max*100)}%;background:${i===0?'var(--green)':i===1?'var(--blue)':'var(--text3)'}"></div></div></td>
+            <td style="font-size:9px;color:var(--text3)">${s.plugin}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function addLog(level, tag, msg) {
+  const ll = document.getElementById('log-lines');
+  const now = new Date();
+  const ts = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+  const cls = {i:'li',p:'lp',f:'lf',s:'ls',w:'lw'}[level]||'li';
+  ll.innerHTML += `<div class="log-line fade-in"><span class="lt">${ts}</span> <span class="${cls}">${tag}</span> <span class="lm">${msg}</span></div>`;
+  ll.scrollTop = ll.scrollHeight;
+}
+
+function resetLogs() {
+  document.getElementById('log-lines').innerHTML = '';
+  document.getElementById('score-content').innerHTML = '<div style="font-size:10px;color:var(--text3);padding:8px">시뮬레이션 실행 후 표시됩니다</div>';
+}
+
+function resetSim(silent) {
+  simRunning = false;
+  document.getElementById('run-btn').disabled = !liveScenario;
+  document.getElementById('run-btn').textContent = '▶ 스케줄링 실행';
+  document.getElementById('sim-status').textContent = '대기 중';
+  resetLogs();
+  if (liveScenario) {
+    renderCluster(liveScenario.nodes, null);
+    updatePipelineIdle();
+  }
+  if (!silent) showToast('warn', '시뮬레이션 초기화됨');
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.remove('active', 'flex-pane');
+    p.style.display = 'none';
+  });
+  el.classList.add('active');
+  const pane = document.getElementById(`tab-${name}`);
+  pane.classList.add('active');
+  if (name === 'yaml') {
+    pane.classList.add('flex-pane');
+    pane.style.display = 'flex';
+  } else {
+    pane.style.display = 'block';
+  }
+  // Build editor lazily when first opening YAML tab
+  if (name === 'yaml' && liveScenario && !document.getElementById('yaml-textarea')) {
+    buildYamlEditor(liveScenario);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════════════════════════
+function renderSidebar() {
+  document.getElementById('scenario-list').innerHTML = scenarios.map(s => `
+    <div class="scenario-item" onclick="selectScenario(${s.id})" id="sc-item-${s.id}">
+      <span class="scenario-num">${s.id}</span>
+      <div>
+        <div class="scenario-label">${s.title}</div>
+        <div class="scenario-tag">${s.tag}</div>
+      </div>
+    </div>`).join('');
+}
+
+renderSidebar();
+</script>
+</body>
+</html>
