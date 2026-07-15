@@ -1,6 +1,6 @@
 ---
 title: "멀티 에어리어 OSPF 구성 실습: Neighbor 형성부터 LSDB, SPF, 라우팅 테이블까지"
-date: "2026-07-15T12:39:45.202Z"
+date: "2026-07-15T13:49:30.424Z"
 categories:
   - "network"
   - "ospf"
@@ -17,7 +17,7 @@ slug: "멀티_에어리어_ospf_구성_실습_neighbor_형성부터_lsdb_spf_라
 
 ## 전체 네트워크 토폴로지
 
-![image](/assets/image_95700652-71bd-4610-9e6f-275b3a06a75e.png)
+![image](/assets/image_f10331d1-6f04-429a-8c90-2bc71ee61077.png)
 
 멀티 에어리어 OSPF 전체 토폴로지
 
