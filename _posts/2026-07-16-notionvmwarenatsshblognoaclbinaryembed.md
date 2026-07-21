@@ -1,5 +1,5 @@
 ---
-title: "notion_vmware_nat_ssh_blog_no_acl_binary_embed"
+title: "VMware_NAT"
 date: "2026-07-16T13:46:00.000Z"
 categories:
   - "vmware"
@@ -8,7 +8,7 @@ author: "현제 김_7254"
 slug: "notionvmwarenatsshblognoaclbinaryembed"
 ---
 
-Notion 붙여넣기용: 이 HTML은 이미지를 data URI로 본문 안에 포함한 단일 파일입니다. 브라우저에서 열고 본문을 전체 선택한 뒤 복사하여 Notion에 붙여넣으면 글과 이미지가 함께 들어갑니다.
+
 
 # VMware NAT 환경에서 외부 Mac → Ubuntu VM SSH 접속 트러블슈팅
 
