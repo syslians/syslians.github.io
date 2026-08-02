@@ -38,7 +38,8 @@ slug: "vmware_vagrant_kubeadm_cilium_트러블슈팅_기록"
 
 ### 현재 클러스터 구성
 
-!/assets/image_0ab5d352-9bf6-4c63-b983-edf2e6afc6de.png
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/a69e2823-1cb0-434c-892b-fd423ff2f8ec" />
+
 
 그림 1. 현재 클러스터, VMnet8 Underlay, Cilium VXLAN 인캡슐레이션 및 인터페이스 연결 구조
 
@@ -112,7 +113,8 @@ slug: "vmware_vagrant_kubeadm_cilium_트러블슈팅_기록"
 
 처음에는 학원 컴퓨터에 있는 기존 Kali linux를 Worker Node로 편입시키려 했지만, 구버젼이라 패키시 GPG Key/ 버젼 불일치 문제로 실습 환경이 지나치게 불안정해졌다. 그래서 최종적으로는 Rocky Linux를 Worker로 구성하고, 이를 위해 Vagrant를 써서 프로비져닝을 하기로 결정했다.
 
-!/assets/image_0ab5d352-9bf6-4c63-b983-edf2e6afc6de.png
+<img width="1011" height="540" alt="image" src="https://github.com/user-attachments/assets/200af8cd-9ce2-4e57-8a2e-9b9a16c6eb63" />
+
 
 그림 2. 초기 Kali Worker 후보에서 인터페이스와 IP를 확인한 화면
 
@@ -122,7 +124,8 @@ slug: "vmware_vagrant_kubeadm_cilium_트러블슈팅_기록"
 
 - Provisioning Shell로 kubelet/containerd/kubeadm 자동화
 
-!/assets/image_0ab5d352-9bf6-4c63-b983-edf2e6afc6de.png
+<img width="1083" height="847" alt="image" src="https://github.com/user-attachments/assets/b04aae58-40d2-4f17-a7ac-63e28a045092" />
+
 
 그림 3. containerd, runc, nftables 등 패키지 다운로드가 404로 실패한 화면
 
@@ -763,20 +766,20 @@ lxc84c76dfe23d8@if26 UP             fe80::185e:2ff:fece:2c55/64
 
 ```
 
-1. 가상 인터페이스 생성 
+2. 가상 인터페이스 생성 
 
 Pod namespace의 eth0, veth/lxc, cillium_host, cillium_vxlan이 연결된다.
 
-1. VXLAN 캡슐화
+3. VXLAN 캡슐화
 
 Pod IP 패킷을 Inner Packet으로 유지하고 노드 IP 192.168.253.130 → 192.168.253.128을 Outer packet으로 사용한다
 
-1. VMnet8 Underlay 전송
+4. VMnet8 Underlay 전송
 
 VXLAN 패킷은 실제 VM NIC인 Worker eth0와 Control Plane ens33사이를 통과한다.
 
-!/assets/image_0ab5d352-9bf6-4c63-b983-edf2e6afc6de.png
 
+<img width="625" height="313" alt="image" src="https://github.com/user-attachments/assets/84699257-cb3a-4446-a181-a09e9f3be781" />
 그림 5. 다른 노드에 존재하는 Pod간의 VXLAN 통신 [출처:https://miro.medium.com/v2/resize:fit:640/format:webp/1*zT08DafNDpuzAx9pKwtTew.png]
 
 | Ethernet | IP | UDP | VXLAN | Ethernet(in) | IP(in) | Payload |
@@ -824,11 +827,11 @@ Ubuntu는 종종 다음 경로를 DNS 설정 파일로 사용한다.
 
 1. kubelet이 Pod Sandbox 생성 실패
 
-1. Cilium init 단계 실패
+2. Cilium init 단계 실패
 
-1. cilium-cni 설치 실패
+3. cilium-cni 설치 실패
 
-1. Node NotReady
+4. Node NotReady
 
 라는 연쇄 오류가 발생했다.
 
