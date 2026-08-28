@@ -1,7 +1,6 @@
 ---
-title: "Linux inode 제대로 이해하기
-"
-date: "2026-08-13T02:56:13.594Z"
+title: "Linux inode 제대로 이해하기"
+date: "2026-08-13T02:03:00.000Z"
 categories:
   - "inode"
   - "file"
@@ -12,202 +11,351 @@ slug: "linux_inode_제대로_이해하기"
 
 ### 파일 이름, 데이터, 하드 링크와 심볼릭 링크는 어떻게 연결되는가
 
-Linux에서 inode를 자주 접하게 된다.
+Linux에서 inode를 이해하면 ls -i, stat, df -i, hard link, symbolic link, 그리고 파일 삭제 후에도 공간이 반환되지 않는 현상까지 하나의 흐름으로 설명할 수 있다.
+
+이 글에서는 다음 질문에 답할 수 있어야 한다.
+
+1. inode의 메타 정보에는 무엇이 포함되는가?
+
+1. rm file.txt를 하면 실제 데이터가 즉시 삭제되는가?
+
+1. 하드 링크는 어떻게 서로 다른 이름으로 같은 파일을 가리키는가?
+
+1. 심볼릭 링크와 하드 링크의 본질적인 차이는 무엇인가?
+
+1. 삭제된 파일을 프로세스가 계속 사용할 수 있는 이유는 무엇인가?
+
+1. 디스크 공간은 남았는데 No space left on device가 발생할 수 있는 이유는 무엇인가?
+
+---
+
+## 1. 우리가 말하는 파일은 여러 객체의 조합이다
+
+사용자는 report.txt, app.py, engine.c, index.html처럼 파일 이름을 중심으로 파일을 인식한다. 하지만 파일시스템 내부에서는 파일 이름, inode, 실제 데이터 블록이 분리되어 관리된다.
 
 ```
-ls -i
-stat file.txt
-df -i
-```
-
-리눅스와 유닉스에서는 시스템, 설정, 애플리케이션, 네트워크 입출력 모두 파일로 관리된다. 그리고 이 파일들은 inode 와 block으로 구성되며 inode번호로 같은 파일을 여러 파일이 참조하게 만들수도 있다.
-
-먼저 이 글에서는 아래의 질문에 대해서 답할 수 있어야 한다.
-
-1. inode의 메타 정보에는 어떤것들이 포함되어 있는가?
-
-1. rm file.txt를 하면 실제 데이터가 즉시 삭제될까?
-
-1. 하드 링크는 어떻게 서로 다른  이름으로 같은 파일을 가리킬까?
-
-1. 심볼릭 링크와 하드링크의 본질적인 차이는 무엇인가?
-
-1. 파일을 삭제했는데 프로세스가 계속 파일을 사용할 수 있는 이유는 무엇일까?
-
-1. 디스크 공간은 남았는데 No space left on device가 뜨는 이유는 무엇인가?
-
-## 1. 우리가 말하는 파일은 여러 객체의 조합이다.
-
-사용자는 다음과 같은것을 파일이라고 생각한다.
-
-report.txt, app.py, engine.c, index.html 등등
-
-하지만 파일 시스템 내부에서는 파일 이름과 파일 메타데이터, 실제 내용이 분리된다.
-
-```
-report.txt 
-     ↓
+report.txt
+   ↓
 Directory Entry
-"report.txt" -> inode 42137
-     ↓
- inode 42137
-     ↓
-Data Block
+"report.txt" → inode 42137
+   ↓
+inode 42137
+   ↓
+Data / Extent Blocks
 ```
 
-파일 이름은 디렉토리 안에 존재하는 이름이고, 그 이름이 특정 inode number와 연결된다. inode는 다시 파일의 메타데이와 실제 데이터 위치를 관리한다. 이 구분이 inode를 이해하는 출발점이다.
+파일 이름은 디렉터리 엔트리 안에 존재하고, 그 이름이 inode 번호를 참조한다. inode는 다시 파일의 메타데이터와 실제 데이터가 위치한 block/extent 정보를 가진다.
 
-## 2. ext4 파일 시스템을 큰 구조에서 먼저 보자.
+---
 
-Linux에서 흔히 사용하는 ext4를 단순화하면 여러 개의 Block Group으로 구성된다고 볼 수 있다.
+## 2. ext4 파일시스템을 큰 구조에서 먼저 보자
+
+ext4를 단순화하면 여러 Block Group으로 구성된다.
 
 ```
 ext4 filesystem
-        │
-        ├── Superblock
-        │
-        ├── Group Descriptor
-        │
-        ├── Block Bitmap
-        │
-        ├── Inode Bitmap
-        │
-        ├── Inode Table
-        │
-        └── Data / Extent Blocks
+    ├── Superblock
+    ├── Group Descriptor
+    ├── Block Bitmap
+    ├── Inode Bitmap
+    ├── Inode Table
+    └── Data / Extent Blocks
 ```
 
-Superblock은 파일 시스템 전체에 대한 중요한 메타데이터를 가진다. Inode Bitmap은 inode사용 여부를 추적하d고, Block Bitmap은 데이터 블록의 사용 여부를 추적한다.
+Superblock은 파일시스템 전체 정보를 관리하고, Inode Bitmap은 inode 사용 여부를, Block Bitmap은 데이터 블록의 사용 여부를 추적한다.
 
-!/assets/image_5cf249b0-0331-4054-aebc-627db773b0e8.png
+![image](/assets/image_8f19968d-cbd4-4f3a-99b9-42307cda1764.png)
 
-그림1. ext4 파일시스템의 고수준 배치
+그림 1. ext4 파일시스템의 고수준 배치
 
-!/assets/image_5cf249b0-0331-4054-aebc-627db773b0e8.png
+![image](/assets/image_7e5dd380-222b-4e48-a02b-863c0a42ce71.png)
 
-그림2. inode 참조관계 구조
+그림 2. inode 참조 관계 구조
 
-여기서 중요한 것은 inode와 실제 데이터 블록의 별도의 영역이 관리된다는 점이다.
+inode의 대표적인 정보는 다음과 같다.
 
-inode의 대표적인 정보들은 다음과 같다.
+- inode number: inode 고유 식별 번호
 
-- inode number : inode 고유 식별 번호
+- file type: 일반 파일, 디렉터리, 심볼릭 링크 등
 
-- FIle Type : 파일의 유형
+- permission: 파일 권한
 
-- Permission : 파일의 권한 
+- UID / GID: 소유 사용자와 그룹
 
-- UID : 파일 소유자 아이디를 나타낸다
+- file size: 논리적 파일 크기
 
-- GID : 파일 소유자의 그룹 아이디를 나타낸다. 
+- link count: 해당 inode를 참조하는 hard link 수
 
-- FIle Size : 파일 크기(bytes)를 나타낸다.
+- atime: 마지막 데이터 접근 시간
 
-- Link Count : 이 아이노드에 대한 참조 수를 나타낸다.
+- mtime: 파일 내용이 마지막으로 수정된 시간
 
-- atime : 마지막으로 이 파일에 접근한 시간
+- ctime: inode 상태(metadata)가 마지막으로 변경된 시간. 생성 시간이 아니다.
 
-- mtime : ?
+- extent / block mapping: 파일 논리 영역과 실제 데이터 블록의 매핑 정보
 
-- ctime : 마지막으로 이 파일을 수정한 시간
+---
 
-- Extent / Block Mapping 
-
-```
-17274999 drwxr-xr-x.   6 root root    77 2024-01-23 23:19 NetworkManager
-17666743 drwxr-xr-x.   3 root root    18 2026-08-10 11:04 alsa
- 1127255 drwxr-xr-x.   2 root root     6 2024-04-26 23:44 binfmt.d
-  773454 lrwxrwxrwx.   1 root root    10 2026-07-10 06:02 cpp -> ../bin/cpp
-50332584 drwxr-xr-x.   9 root root   109 2026-08-10 11:03 cups
-16777355 drwxr-xr-x.   4 root root    76 2026-08-10 10:59 debug
-17151887 drwxr-xr-x.   4 root root  4096 2026-08-10 11:02 dracut
-52442495 drwxr-xr-x.   2 root root    33 2026-08-10 11:02 environment.d
-50742568 drwxr-xr-x.   8 root root    97 2026-08-10 10:59 firewalld
-50366260 drwxr-xr-x. 101 root root 16384 2026-08-10 11:04 firmware
-17190084 drwxr-xr-x.   3 root root    19 2026-08-10 11:00 fontconfig
-33900919 dr-xr-xr-x.   2 root root     6 2021-08-10 05:40 games
-53627490 drwxr-xr-x.   3 root root    33 2026-08-11 21:17 gcc
-34723552 drwxr-xr-x.   3 root root    21 2026-08-10 11:01 grub
-  751203 drwxr-xr-x.   6 root root    76 2026-08-10 10:59 kbd
-52679373 drwxr-xr-x.   2 root root    79 2026-08-10 11:03 kdump
-52406822 drwxr-xr-x.   3 root root    43 2026-08-10 11:02 kernel
-50768832 drwxr-xr-x.   5 root root   106 2026-07-30 03:33 locale
-     190 drwxr-xr-x.   2 root root    89 2026-08-10 11:02 modprobe.d
-  754248 drwxr-xr-x.   3 root root    35 2026-08-10 11:02 modules
-17119475 drwxr-xr-x.   2 root root    81 2026-08-10 11:03 modules-load.d
-  754236 -rw-r--r--.   1 root root     0 2024-02-07 17:40 motd
-  754237 drwxr-xr-x.   2 root root     6 2024-02-07 17:40 motd.d
-33688858 drwxr-xr-x.   5 root root    69 2026-08-10 10:57 mozilla
-  754231 -rw-r--r--.   1 root root   389 2024-03-21 02:58 os-release
-34495929 drwxr-xr-x.   2 root root    55 2026-08-10 11:03 ostree
- 1127264 drwxr-xr-x.   2 root root    26 2026-08-10 11:02 pam.d
- 1118701 drwxr-xr-x.   2 root root    50 2026-08-10 11:02 polkit-1
-52256572 drwxr-xr-x.   3 root root    27 2026-08-10 11:00 python3.9
- 2006147 drwxr-xr-x.   2 root root    60 2026-08-10 11:03 realmd
-17053390 drwxr-xr-x.   6 root root  4096 2026-08-10 11:03 rpm
-  754232 drwxr-xr-x.   2 root root   181 2026-08-10 11:02 sysctl.d
-17062418 drwxr-xr-x.   2 root root     6 2021-08-10 05:40 sysimage
-17062406 drwxr-xr-x.  15 root root  4096 2026-08-10 11:04 systemd
-17232988 drwxr-xr-x.   2 root root  4096 2026-08-10 11:15 sysusers.d
-16787498 drwxr-xr-x.   2 root root  4096 2026-08-10 11:15 tmpfiles.d
- 2007735 drwxr-xr-x.  17 root root  4096 2026-08-10 11:04 tuned
-33865523 drwxr-xr-x.   4 root root  4096 2026-08-10 11:04 udev
+## 3. 파일 하나를 만들고 inode를 직접 확인해보자
 
 ```
-
-!/assets/image_5cf249b0-0331-4054-aebc-627db773b0e8.png
-
-```
--rw-r--r--.  1  root  root  system_u:object_r:passwd_file_t:s0  2304  2026-08-12 15:23  /etc/passwd
-│            │   │     │    │                                    │        │             │
-│            │   │     │    │                                    │        │             └─ 파일명
-│            │   │     │    │                                    │        └─ 수정 시간
-│            │   │     │    │                                    └─ 파일 크기
-│            │   │     │    └─ SELinux Security Context
-│            │   │     └─ 소유 Group
-│            │   └─ 소유 User
-│            └─ Hard Link 수
-└─ 파일 종류 + Unix Permission
+printf 'hello inode\n' > original.txt
+ls -li original.txt
+stat original.txt
 ```
 
-- 필드 정보 해석
+![image](/assets/image_85b2ba48-584a-48d7-9812-87b38bee5462.svg)
 
-1. 첫번째 -는 파일 종류(디렉토리라면 d, 심볼릭 링크라면 1, 그 뒤 9비트 
+CLI 출력 — ls -li original.txt, stat original.txt
 
-```
-rw-r--r--. 
-│  │  │  │ ---> RHEL,CentOS의ls . 표시는 SELinux security context 확장 보안정보 
-│  │  └── other = r-- 4
-│  └───── group = r-- 4
-└──────── owner = rw- 6
-```
+ls -li의 첫 번째 숫자가 inode 번호다. 위 예시에서는 1048583이 inode 번호다. 이 번호는 파일 이름 자체의 번호가 아니라 해당 파일시스템 내부에서 inode를 식별하는 번호다.
 
-1. 1 — Hard Link Count
+---
+
+## 4. 하드 링크는 같은 inode를 공유한다
+
+하드 링크를 만들면 새로운 inode를 생성하는 것이 아니라 기존 inode를 참조하는 새로운 directory entry가 만들어진다.
 
 ```
--rw-r--r--. 1 
+ln original.txt hardlink.txt
+ls -li original.txt hardlink.txt
+echo 'added by hardlink' >> hardlink.txt
+cat original.txt
 ```
 
-여기서 1은 이 inode를 가리키는 hard link 수
+![image](/assets/image_123ca3a5-8d13-410d-a34d-5f40e71bb16d.svg)
 
-개념적으로
+CLI 출력 — 동일 inode 번호와 link count 2 확인
+
+구조를 단순화하면 다음과 같다.
 
 ```
-filename ---> directory entry ---> inode
+original.txt ─┐
+              ├── inode 1048583 ──→ data blocks
+hardlink.txt ─┘
 ```
 
-현재 /etc/passwd의 inode를 가리키는 directory entry가 1개라는 뜻이다.
+두 파일 이름 모두 같은 inode를 참조하므로 어느 이름으로 내용을 수정해도 같은 데이터가 보인다. 그리고 inode의 link count는 1 → 2로 증가한다.
 
+하드 링크는 일반적으로 서로 다른 파일시스템을 넘을 수 없다. 파일시스템마다 inode 번호 공간이 독립적이기 때문이다.
+
+---
+
+## 5. rm은 파일 내용을 즉시 지우는 명령이 아니라 이름을 unlink한다
+
+original.txt와 hardlink.txt가 같은 inode를 가리키는 상태에서 original.txt만 삭제해보자.
+
+```
+rm original.txt
+ls -li hardlink.txt original.txt
+cat hardlink.txt
+```
+
+![image](/assets/image_4df41c03-314c-4f12-a895-cd9f88fda6ba.svg)
+
+CLI 출력 — rm original.txt 이후에도 hardlink.txt로 동일 데이터 접근
+
+삭제 전:
+
+```
+original.txt ─┐
+              ├── inode 1048583 ──→ data blocks
+hardlink.txt ─┘
+```
+
+삭제 후:
+
+```
+hardlink.txt ───── inode 1048583 ──→ data blocks
+```
+
+즉 rm은 해당 directory entry와 inode의 연결을 끊는 unlink 동작으로 보는 것이 더 정확하다. 다른 hard link가 남아 있다면 inode와 데이터는 그대로 유지된다.
+
+---
+
+## 6. 심볼릭 링크는 inode를 공유하지 않고 경로 문자열을 저장한다
+
+심볼릭 링크는 target 파일과 별도의 inode를 가진다.
+
+```
+printf 'symlink demo\n' > target.txt
+ln -s target.txt symlink.txt
+ls -li target.txt symlink.txt
+rm target.txt
+ls -l symlink.txt
+cat symlink.txt
+```
+
+![image](/assets/image_065fa0e8-a6b1-4665-8fca-c55f3a181849.svg)
+
+CLI 출력 — symlink와 target의 서로 다른 inode 번호 확인
+
+구조는 다음과 같다.
+
+```
+symlink.txt
+   ↓
+별도 inode
+   ↓
+"target.txt" 라는 경로 문자열
+   ↓
+target.txt의 inode
+```
+
+따라서 target이 삭제되면 symlink 자체는 남아 있지만 더 이상 실제 대상을 찾을 수 없는 dangling symbolic link가 된다.
+
+---
+
+## 7. 삭제된 파일을 프로세스가 계속 열고 있으면 디스크 공간이 반환되지 않는다
+
+Linux에서 파일의 directory entry가 삭제되더라도 프로세스가 해당 inode에 대한 열린 file descriptor를 유지하고 있으면 데이터 블록은 즉시 해제되지 않는다.
+
+```
+printf 'log line\n' > app.log
+tail -f app.log &
+rm app.log
+lsof +L1
+```
+
+![image](/assets/image_286146df-997b-436d-b245-95fd1cddcc50.svg)
+
+CLI 출력 — lsof +L1로 (deleted) 상태의 열린 파일 확인
+
+이 상황에서 경로 이름은 사라졌지만 프로세스의 file descriptor는 해당 inode를 계속 참조한다.
+
+```
+Directory Entry → 삭제됨
+
+Process FD ─────→ inode ─────→ data blocks
+```
+
+프로세스가 file descriptor를 닫거나 종료해야 최종적으로 inode와 데이터 블록이 해제될 수 있다.
+
+운영 중 로그 파일은 단순히 rm으로 제거하기보다 서비스가 지원하는 log rotation 또는 reopen 절차를 사용하는 것이 안전하다. 대용량 로그를 지웠는데도 df -h가 줄지 않는다면 lsof +L1을 우선 확인할 수 있다.
+
+---
+
+## 8. df -h에 공간이 남아 있어도 inode가 고갈될 수 있다
+
+파일 하나를 생성하려면 최소 하나의 inode가 필요하다. 아주 작은 파일을 대량으로 만들면 데이터 블록은 남아 있어도 inode가 먼저 소진될 수 있다.
+
+![image](/assets/image_3536ef01-2e47-4a9e-91b1-544df3770694.svg)
+
+CLI 출력 — 블록 공간은 남아 있지만 inode가 100% 사용된 상황
+
+위 상황에서는 df -h 기준으로 약 8.9GB가 남아 있지만 df -i의 IUse%가 100%다. 이 경우 새 파일을 만들 때도 No space left on device가 발생할 수 있다.
+
+따라서 메일 큐, cache, session, 임시 파일, 빌드 산출물처럼 작은 파일이 대량 생성되는 환경에서는 다음 두 명령을 함께 보는 것이 좋다.
+
+```
+df -h
+df -i
+```
+
+---
+
+## 9. inode 개수를 확인하는 기본 명령
+
+현재 파일시스템의 inode 통계를 확인한다.
+
+```
+df -i /
+```
+
+특정 파일의 inode 번호를 확인한다.
+
+```
 ls -li /etc/passwd
-
-1. 첫번째 root - Owner
-
-```
-1 root root 
-  └──┘
-  Owner
+stat /etc/passwd
 ```
 
-파일의 소유 사용자. indoe 내부에는 실제로 문자열 root가
+stat은 inode 번호뿐 아니라 권한, UID/GID, size, link count, atime/mtime/ctime, filesystem block size 등의 정보를 한 번에 확인할 수 있어서 inode 분석에 가장 유용한 명령 중 하나다.
 
-저장되는게 아니라 UID가 저장된다.
+---
+
+## 10. atime, mtime, ctime을 실제로 비교해보자
+
+파일의 내용 변경과 metadata 변경은 서로 다른 timestamp에 영향을 준다.
+
+```
+printf 'time demo\n' > time-test.txt
+stat time-test.txt
+cat time-test.txt
+echo 'more' >> time-test.txt
+chmod 600 time-test.txt
+stat time-test.txt
+```
+
+![image](/assets/image_7b334d8b-4852-49b3-829c-2cfc65d9aedf.svg)
+
+CLI 출력 — 데이터 변경과 chmod 전후의 atime/mtime/ctime 비교
+
+정리하면:
+
+- atime: 파일 데이터를 읽은 시간과 관련된다.
+
+- mtime: 파일의 내용(data)이 변경된 시간이다.
+
+- ctime: inode metadata가 변경된 시간이다. 권한, 소유자, link count뿐 아니라 파일 내용 변경으로 inode 상태가 바뀌어도 갱신될 수 있다.
+
+단, atime은 mount option에 따라 동작이 달라질 수 있다. Linux에서는 성능을 위해 relatime, noatime 정책을 사용할 수 있으므로 read마다 항상 즉시 갱신된다고 단정하면 안 된다.
+
+---
+
+## 11. inode 번호로 파일 경로를 찾을 수 있다
+
+inode 번호를 알고 있다면 해당 inode를 참조하는 경로를 검색할 수 있다.
+
+```
+find / -xdev -inum 1048583 2>/dev/null
+```
+
+같은 파일시스템 안에서 hard link가 여러 개 존재한다면 동일 inode 번호를 가진 여러 경로가 검색될 수 있다.
+
+---
+
+## 12. VFS에서 실제 block I/O까지의 흐름
+
+사용자가 파일을 읽거나 쓸 때 inode는 Linux 저장 계층의 중간 핵심 객체로 동작한다.
+
+```
+Application
+    ↓
+VFS (Virtual File System)
+    ↓
+Directory Entry
+    ↓
+inode / filesystem metadata
+    ↓
+extent / block mapping
+    ↓
+Block Device
+    ↓
+LVM / RAID / Disk
+```
+
+예를 들어 애플리케이션이 /etc/passwd를 읽으면 VFS가 경로를 탐색하고 directory entry를 통해 inode를 찾는다. 파일시스템은 inode의 extent/block mapping을 이용해 실제 데이터 블록 위치를 확인한 후 block layer로 I/O를 전달한다.
+
+---
+
+## 핵심 요약
+
+- 파일 이름은 inode가 아니다. 파일 이름은 directory entry 안에서 inode를 참조한다.
+
+- inode는 파일의 메타데이터와 실제 데이터 위치 정보를 관리한다.
+
+- hard link는 동일 inode를 공유하며 link count를 증가시킨다.
+
+- symbolic link는 별도의 inode를 사용하고 target 경로 문자열을 지정한다.
+
+- rm은 기본적으로 파일 이름과 inode 연결을 unlink한다.
+
+- link count가 0이어도 프로세스가 inode를 열고 있으면 데이터는 유지될 수 있다.
+
+- 삭제했는데 디스크 공간이 줄지 않으면 lsof +L1을 확인한다.
+
+- df -h뿐 아니라 df -i도 함께 확인해야 inode 고갈 장애를 찾을 수 있다.
+
+- ctime은 create time이 아니라 inode 상태 변경 시간이다.
+
+- 파일 접근 흐름은 path → dentry → inode → extent/block → block device로 이해하면 된다.
