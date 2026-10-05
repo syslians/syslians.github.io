@@ -35,8 +35,8 @@ slug: "aws_cloudformation으로_2개_az_웹_아키텍처_구성하기"
 ## 실습 환경
 
 ## 목표 아키텍처
+<img width="1106" height="669" alt="image" src="https://github.com/user-attachments/assets/9239be63-b657-4cfc-82c8-ce6c11af354a" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
 
 이번 실습에서는 EC2를 퍼블릭 서브넷에 배치했다. ALB 뒤의 웹 서버를 프라이빗 서브넷에 배치하는 구성이 일반적으로 더 안전하지만, 이번 실습에서는 EC2 접속과 구조 확인을 위해 퍼블릭 서브넷 구성을 사용했다.
 
