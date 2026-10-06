@@ -28,7 +28,7 @@ slug: "aws_cloudformation으로_2개_az_웹_아키텍처_구성하기"
 
 - 현재 RDS 인스턴스를 제외한 리소스 생성 완료
 
-> [그림 삽입 위치: CloudFormation 스택 생성 완료 화면]
+
 
 > 캡션: RDS 인스턴스를 제외한 리소스가 생성된 상태
 
@@ -36,7 +36,8 @@ slug: "aws_cloudformation으로_2개_az_웹_아키텍처_구성하기"
 
 ## 목표 아키텍처
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1106" height="669" alt="image" src="https://github.com/user-attachments/assets/3311e44e-2093-4ca3-b4ff-4ad16fd7d0b4" />
+
 
 이번 실습에서는 EC2를 퍼블릭 서브넷에 배치했다. ALB 뒤의 웹 서버를 프라이빗 서브넷에 배치하는 구성이 일반적으로 더 안전하지만, 이번 실습에서는 EC2 접속과 구조 확인을 위해 퍼블릭 서브넷 구성을 사용했다.
 
@@ -392,7 +393,8 @@ aws cloudformation validate-template `
   --region ap-northeast-2
 ```
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1282" height="902" alt="image" src="https://github.com/user-attachments/assets/7ef0762b-21d1-4ff2-bfa9-5cb4b55ef525" />
+
 
 > tempalte 검증 성공시 오류 없이 항목들이 출력된다.
 
@@ -429,23 +431,28 @@ aws cloudformation describe-stacks `
   --output table
 ```
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1602" height="362" alt="image" src="https://github.com/user-attachments/assets/416a240d-55d6-472e-9e6c-e909c6c8f9d3" />
+
 
 create-complet 명령으로 스택 생성 확인
 
 스택이 생성하고 있는 리소스 목록 확인. 총 32개가 확인되며 rds 인스턴스가 가장 프로비져닝이 오래걸렸으며 16분정도 소요되었다.
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1424" height="715" alt="image" src="https://github.com/user-attachments/assets/d573452b-ddd1-41b3-8123-98f17ccb933d" />
+
 
 > CloudFormation Stack events
 
 리소스 생성 확인. 모두 상태가 CREATE_COMPLETE 인지 확인한다
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1347" height="694" alt="image" src="https://github.com/user-attachments/assets/2e8a7852-df48-4739-b003-8507eb2a4683" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1342" height="641" alt="image" src="https://github.com/user-attachments/assets/66c3d421-c222-4bc4-885e-223d300aaf5c" />
+
+
+<img width="1353" height="623" alt="image" src="https://github.com/user-attachments/assets/e8a95d84-9f3b-4ce9-bc36-71fb285c4274" />
+
 
 > :VPC, 서브넷, NAT Gateway, ALB, Launch Template, Auto Scaling Group의 생성 결과
 
@@ -473,17 +480,16 @@ Private Route Table C
 0.0.0.0/0  → NAT Gateway C
 ```
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1631" height="461" alt="image" src="https://github.com/user-attachments/assets/dfaddb0f-4dd6-4dfd-be8f-95720f606c87" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+
+<img width="1589" height="322" alt="image" src="https://github.com/user-attachments/assets/5807647a-9188-4e9a-9c7d-f8415ec4b4d5" />
+
 
 > VPC 라우팅 테이블 화면
 
 > 캡션: 퍼블릭 라우팅 테이블의 IGW 경로와 프라이빗 라우팅 테이블의 NAT 경로
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
-
-블랙홀?
 
 ### ALB와 Target Group
 
@@ -496,9 +502,11 @@ ALB는 두 퍼블릭 서브넷에 연결하고 TCP 80 Listener를 구성했다.
   → EC2 Apache :80
 ```
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1106" height="669" alt="image" src="https://github.com/user-attachments/assets/079c629e-461e-441c-b7df-699795dd930f" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+
+<img width="1651" height="600" alt="image" src="https://github.com/user-attachments/assets/29a372fc-2b44-47b3-b1a6-67d05b5630de" />
+
 
 > ALB의 80번 Listener와 Target Group 연결 상태
 
@@ -527,14 +535,14 @@ aws autoscaling describe-auto-scaling-groups `
   --query "AutoScalingGroups[0].[MinSize,DesiredCapacity,MaxSize,Instances]" `
   --output json
 ```
+<img width="1577" height="713" alt="image" src="https://github.com/user-attachments/assets/3c128f4f-33bc-4602-ae54-817b5bbe8455" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
 
 > Auto Scaling Group 인스턴스 목록
 
 Launch Template의 UserData는 Ubuntu에 Apache를 설치하고 인스턴스 ID와 Availability Zone을 웹 페이지에 표시하도록 구성했다.
+<img width="1644" height="390" alt="image" src="https://github.com/user-attachments/assets/d299ed70-a184-4e0c-82c3-5319f888978d" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
 
 > 실행중인 인스턴스 목록 
 
@@ -544,16 +552,19 @@ alb로 트래픽을 보내 정상적으로 로드밸런싱을 하는지 확인�
 
 명령을 통해 http 요청을 받으면 인스턴스 id를 출력하도록 구성했다.
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="917" height="256" alt="image" src="https://github.com/user-attachments/assets/b65aca4c-8471-47f5-a263-0c9ca2886832" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="951" height="338" alt="image" src="https://github.com/user-attachments/assets/552a2147-1656-471a-9f15-7b0952f8831d" />
 
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+
+<img width="1359" height="302" alt="image" src="https://github.com/user-attachments/assets/8d8d1b86-dedc-4bf3-8895-9fbf068563ae" />
+
+
+<img width="1166" height="266" alt="image" src="https://github.com/user-attachments/assets/f55049f0-9e22-460f-a041-5c65f582d36d" />
+
 
 > 각 가용영역에 올바르게 로드밸런싱하는 모습 
 
 인스턴스에서 db로 접근 가능한지 확인
-
-!/assets/image_4015550d-923e-4d3f-b7a2-9bb823603ba7.png
+<img width="1024" height="898" alt="image" src="https://github.com/user-attachments/assets/050da767-f2fb-44ce-83b7-a1709101501a" />
