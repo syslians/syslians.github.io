@@ -1,0 +1,70 @@
+name: Publish Notion page as PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      notion_url:
+        description: "Notion page URL or page ID (share page with Notion integration)"
+        required: true
+        type: string
+      slug:
+        description: "Optional unique post slug (leave blank to derive from title)"
+        required: false
+        type: string
+      post_date:
+        description: "Optional YYYY-MM-DD (leave blank for Notion creation date)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: notion-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r scripts/requirements-notion.txt
+      - name: Export Notion post and images
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_URL: ${{ inputs.notion_url }}
+          POST_DATE: ${{ inputs.post_date }}
+          POST_SLUG: ${{ inputs.slug }}
+        run: |
+          python scripts/notion_to_blog.py --url "$NOTION_URL" ${POST_DATE:+--date "$POST_DATE"} ${POST_SLUG:+--slug "$POST_SLUG"}
+      - name: Create draft pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTION_URL: ${{ inputs.notion_url }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="notion/publish-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch -c "$BRANCH"
+          git add _posts assets/images/posts
+          if git diff --cached --quiet; then
+            echo "No new files were generated"
+            exit 1
+          fi
+          git commit -m "docs: import Notion post with local images"
+          git push origin "$BRANCH"
+          gh pr create --draft --base main --head "$BRANCH" \
+            --title "docs: import Notion post (run ${GITHUB_RUN_ID})" \
+            --body "Automated Notion import with locally hosted images. Source: ${NOTION_URL}. Please review formatting, images, privacy, and Jekyll build before merging."
