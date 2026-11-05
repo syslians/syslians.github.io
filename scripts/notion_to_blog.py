@@ -53,7 +53,7 @@ def rich(items):
             s = "*" + s + "*"
         if a.get("strikethrough"):
             s = "~~" + s + "~~"
-        if item.get("href", "").startswith(("https://", "http://")):
+        if (item.get("href") or "").startswith(("https://", "http://")):
             s = "[" + s + "](" + item["href"] + ")"
         result.append(s)
     return "".join(result)
