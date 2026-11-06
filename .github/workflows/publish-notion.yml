@@ -29,10 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout main
+      - name: Checkout master
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
           persist-credentials: true
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -65,6 +65,6 @@ jobs:
           fi
           git commit -m "docs: import Notion post with local images"
           git push origin "$BRANCH"
-          gh pr create --draft --base main --head "$BRANCH" \
+          gh pr create --draft --base master --head "$BRANCH" \
             --title "docs: import Notion post (run ${GITHUB_RUN_ID})" \
             --body "Automated Notion import with locally hosted images. Source: ${NOTION_URL}. Please review formatting, images, privacy, and Jekyll build before merging."
