@@ -1,6 +1,10 @@
 name: Publish Notion page as PR
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/publish-notion.yml'
   workflow_dispatch:
     inputs:
       notion_url:
@@ -43,9 +47,9 @@ jobs:
       - name: Export Notion post and images
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_URL: ${{ inputs.notion_url }}
-          POST_DATE: ${{ inputs.post_date }}
-          POST_SLUG: ${{ inputs.slug }}
+          NOTION_URL: ${{ github.event_name == 'push' && 'https://app.notion.com/p/40caa16a5aa480f4b254c8a996e6c193' || inputs.notion_url }}
+          POST_DATE: ${{ github.event_name == 'push' && '2026-11-02' || inputs.post_date }}
+          POST_SLUG: ${{ github.event_name == 'push' && 'mini-l4-load-balancer-tcp-echo-server' || inputs.slug }}
         run: |
           python scripts/notion_to_blog.py --url "$NOTION_URL" ${POST_DATE:+--date "$POST_DATE"} ${POST_SLUG:+--slug "$POST_SLUG"}
       - name: Validate newly generated post and images
@@ -54,10 +58,13 @@ jobs:
           POST="$(git ls-files --others --exclude-standard _posts | head -n 1)"
           test -n "$POST"
           python scripts/validate_post_images.py --post "$POST"
+      - name: Set up Ruby and dependencies
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
       - name: Build Jekyll preview before publication
         run: |
-          gem install bundler
-          bundle install
           bundle exec jekyll build
       - name: Publish validated post and images to master
         run: |
