@@ -21,6 +21,15 @@ def api(path):
         if r.status_code in (429, 500, 502, 503, 504) and attempt < 4:
             time.sleep(min(int(r.headers.get("Retry-After", "2")), 15) + attempt)
             continue
+        if r.status_code == 404 and path.startswith("/pages/"):
+            raise RuntimeError(
+                "Notion API returned 404 for page " + path.split("/")[-1]
+                + ". Verify that the NOTION_TOKEN belongs to an integration"
+                + " connected to this Notion page (page menu > Connections),"
+                + " and that the page is shared with that integration."
+            )
+        if r.status_code == 401:
+            raise RuntimeError("Notion API returned 401: check NOTION_TOKEN in GitHub Actions secrets.")
         r.raise_for_status()
         return r.json()
     raise RuntimeError("Notion request failed")
