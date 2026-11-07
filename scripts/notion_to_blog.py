@@ -110,7 +110,7 @@ def render(items, image_dir, image_url, count):
             if not total:
                 raise ValueError("Empty image: " + name)
             caption = plain(data.get("caption", [])) or f"Notion 이미지 {count[0]}"
-            output.append("![" + caption.replace("]", "\\]") + "]({{ '" + image_url + "/" + name + "' | relative_url }})")
+            output.append("![" + caption.replace("]", "\\]") + "](https://raw.githubusercontent.com/" + os.environ.get("GITHUB_REPOSITORY", "syslians/syslians.github.io") + "/main" + image_url + "/" + name + ")")
         elif kind == "table":
             rows = [x["table_row"]["cells"] for x in blocks(b["id"]) if x["type"] == "table_row"]
             if rows:
