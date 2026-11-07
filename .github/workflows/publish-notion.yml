@@ -54,7 +54,7 @@ jobs:
       - name: Create draft pull request
         env:
           GH_TOKEN: ${{ github.token }}
-          NOTION_URL: ${{ inputs.notion_url }}
+          NOTION_URL: ${{ github.event_name == 'push' && 'https://app.notion.com/p/SQL-Injection-Stored-User-Agent-410aa16a5aa480f7894ddbe36cd83791' || inputs.notion_url }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
