@@ -1,0 +1,49 @@
+name: Validate master blog post images
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - '_posts/**'
+      - 'assets/images/posts/**'
+  push:
+    branches: [master]
+    paths:
+      - '_posts/**'
+      - 'assets/images/posts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - run: python scripts/validate_post_images.py --post _posts/2026-11-06-sql-injection-stored-user-agent.md
+
+  live:
+    needs: source
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - name: Validate deployed Chirpy HTML and 17 image HTTP responses
+        run: |
+          python scripts/validate_post_images.py \
+            --post _posts/2026-11-06-sql-injection-stored-user-agent.md \
+            --live-url https://syslians.github.io/posts/sql-injection-stored-user-agent/ \
+            --attempts 15
