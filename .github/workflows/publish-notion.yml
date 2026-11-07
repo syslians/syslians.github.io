@@ -1,6 +1,9 @@
 name: Publish Notion page as PR
 
 on:
+  push:
+    paths:
+      - '.github/workflows/publish-notion.yml'
   workflow_dispatch:
     inputs:
       notion_url:
@@ -43,9 +46,9 @@ jobs:
       - name: Export Notion post and images
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_URL: ${{ inputs.notion_url }}
-          POST_DATE: ${{ inputs.post_date }}
-          POST_SLUG: ${{ inputs.slug }}
+          NOTION_URL: ${{ github.event_name == 'push' && 'https://app.notion.com/p/SQL-Injection-Stored-User-Agent-410aa16a5aa480f7894ddbe36cd83791' || inputs.notion_url }}
+          POST_DATE: ${{ github.event_name == 'push' && '2026-11-06' || inputs.post_date }}
+          POST_SLUG: ${{ github.event_name == 'push' && 'sql-injection-stored-user-agent' || inputs.slug }}
         run: |
           python scripts/notion_to_blog.py --url "$NOTION_URL" ${POST_DATE:+--date "$POST_DATE"} ${POST_SLUG:+--slug "$POST_SLUG"}
       - name: Create draft pull request
