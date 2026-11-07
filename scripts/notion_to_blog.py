@@ -21,6 +21,15 @@ def api(path):
         if r.status_code in (429, 500, 502, 503, 504) and attempt < 4:
             time.sleep(min(int(r.headers.get("Retry-After", "2")), 15) + attempt)
             continue
+        if r.status_code == 404 and path.startswith("/pages/"):
+            raise RuntimeError(
+                "Notion API returned 404 for page " + path.split("/")[-1]
+                + ". Verify that the NOTION_TOKEN belongs to an integration"
+                + " connected to this Notion page (page menu > Connections),"
+                + " and that the page is shared with that integration."
+            )
+        if r.status_code == 401:
+            raise RuntimeError("Notion API returned 401: check NOTION_TOKEN in GitHub Actions secrets.")
         r.raise_for_status()
         return r.json()
     raise RuntimeError("Notion request failed")
@@ -101,7 +110,7 @@ def render(items, image_dir, image_url, count):
             if not total:
                 raise ValueError("Empty image: " + name)
             caption = plain(data.get("caption", [])) or f"Notion 이미지 {count[0]}"
-            output.append("![" + caption.replace("]", "\\]") + "]({{ '" + image_url + "/" + name + "' | relative_url }})")
+            output.append("![" + caption.replace("]", "\\]") + "](https://raw.githubusercontent.com/" + os.environ.get("GITHUB_REPOSITORY", "syslians/syslians.github.io") + "/master" + image_url + "/" + name + ")")
         elif kind == "table":
             rows = [x["table_row"]["cells"] for x in blocks(b["id"]) if x["type"] == "table_row"]
             if rows:
