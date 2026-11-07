@@ -24,7 +24,7 @@ def check_source(post):
         if url.startswith(RAW_PREFIX):
             parsed = urlparse(url)
             pieces = parsed.path.lstrip("/").split("/", 3)
-            if len(pieces) != 4 or pieces[2] != "main":
+            if len(pieces) != 4 or pieces[2] != "master":
                 raise ValueError("Unexpected GitHub raw URL: " + url)
             path = Path(pieces[3])
         elif url.startswith("/"):
