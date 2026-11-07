@@ -1,0 +1,48 @@
+name: Validate Notion blog images
+
+on:
+  pull_request:
+    paths:
+      - '_posts/**'
+      - 'assets/images/posts/**'
+      - 'scripts/validate_post_images.py'
+  push:
+    branches: [main]
+    paths:
+      - '_posts/**'
+      - 'assets/images/posts/**'
+      - 'scripts/validate_post_images.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown-and-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - name: Check Markdown links, GitHub preview syntax and local images
+        run: |
+          python scripts/validate_post_images.py --post _posts/2026-11-06-sql-injection-stored-user-agent.md
+
+  deployed-render:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: markdown-and-assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - name: Check public HTML and image responses after Pages deployment
+        run: |
+          python scripts/validate_post_images.py \
+            --post _posts/2026-11-06-sql-injection-stored-user-agent.md \
+            --live-url https://syslians.github.io/2026/11/06/sql-injection-stored-user-agent.html \
+            --attempts 15
