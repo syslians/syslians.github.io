@@ -48,23 +48,22 @@ jobs:
           POST_SLUG: ${{ inputs.slug }}
         run: |
           python scripts/notion_to_blog.py --url "$NOTION_URL" ${POST_DATE:+--date "$POST_DATE"} ${POST_SLUG:+--slug "$POST_SLUG"}
-      - name: Create draft pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NOTION_URL: ${{ inputs.notion_url }}
+      - name: Validate newly generated post and images
+        run: |
+          set -euo pipefail
+          POST="$(git ls-files --others --exclude-standard _posts | head -n 1)"
+          test -n "$POST"
+          python scripts/validate_post_images.py --post "$POST"
+      - name: Build Jekyll preview before publication
+        run: |
+          gem install bundler
+          bundle install
+          bundle exec jekyll build
+      - name: Publish validated post and images to master
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          BRANCH="notion/publish-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          git switch -c "$BRANCH"
           git add _posts assets/images/posts
-          if git diff --cached --quiet; then
-            echo "No new files were generated"
-            exit 1
-          fi
-          git commit -m "docs: import Notion post with local images"
-          git push origin "$BRANCH"
-          gh pr create --draft --base master --head "$BRANCH" \
-            --title "docs: import Notion post (run ${GITHUB_RUN_ID})" \
-            --body "Automated Notion import with locally hosted images. Source: ${NOTION_URL}. Please review formatting, images, privacy, and Jekyll build before merging."
+          git commit -m "docs(master): publish validated Notion post"
+          git push origin HEAD:master
