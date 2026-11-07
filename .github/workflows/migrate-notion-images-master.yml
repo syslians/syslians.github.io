@@ -1,0 +1,50 @@
+name: Migrate Notion images to master
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/migrate-notion-images-master.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - name: Copy 17 original image blobs from main into master
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="assets/images/posts/2026-11-06-sql-injection-stored-user-agent"
+          mkdir -p "$dir"
+          for i in $(seq -w 1 17); do
+            path="$dir/${i}-410aa16a.png"
+            gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=main" --jq '.content' |
+              tr -d '\n' | base64 --decode > "$path"
+            test -s "$path"
+          done
+      - name: Validate Markdown and all 17 image files before commit
+        run: |
+          python scripts/validate_post_images.py --post _posts/2026-11-06-sql-injection-stored-user-agent.md
+      - name: Commit images to master
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/images/posts/2026-11-06-sql-injection-stored-user-agent
+          if ! git diff --cached --quiet; then
+            git commit -m "assets(master): import 17 Notion screenshots"
+            git push origin HEAD:master
+          fi
