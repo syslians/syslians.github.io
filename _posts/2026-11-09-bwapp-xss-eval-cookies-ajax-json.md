@@ -9,7 +9,7 @@ notion_source: "https://app.notion.com/p/bWAPP-XSS-Eval-Cookies-AJAX-JSON-413aa1
 
 범위는 **XSS - Reflected (Eval)**, **XSS - Stored (Cookies)**, **XSS - Reflected (AJAX/JSON)** 세 가지로 제한한다. AJAX/XML은 이번 글에서 제외한다.
 
-- 환경: Kali Firefox/Burp → bee-box bWAPP, 기본 주소 [http://192.168.20.205/bWAPP/](http://192.168.20.205/bWAPP/)
+- 환경: Kali Firefox/Burp → bee-box bWAPP, 기본 주소 `http://192.168.20.205/bWAPP/`
 
 - Security Level을 Low로 설정한다. 각 시나리오가 끝나면 같은 입력으로 Medium·High의 응답과 처리 코드를 비교한다.
 
