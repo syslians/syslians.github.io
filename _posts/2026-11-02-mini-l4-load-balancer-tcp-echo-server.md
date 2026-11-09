@@ -48,13 +48,9 @@ close()                            close(client_fd)
 ### 2. 서버와 클라이언트가 갖는 FD 비교
 
 | 소유 프로세스 | 변수 | 생성 API | 역할 |
-
 | --- | --- | --- | --- |
-
 | 서버 | server_fd | socket() | LISTEN 소켓, 새 연결 수락용 |
-
 | 서버 | client_fd | accept() | 특정 클라이언트와 실제 송수신용 |
-
 | 클라이언트 | sock_fd | socket() | connect() 이후 서버와 송수신용 |
 
 ### 3. server.c — Blocking TCP Echo Server 전체 코드
@@ -949,21 +945,13 @@ tcp.len > 0
 ### 9. 자주 혼동하는 개념과 정정 메모
 
 | 혼동 | 올바른 이해 |
-
 | --- | --- |
-
 | 서버의 client_fd = 클라이언트의 sock_fd | 두 FD는 서로 다른 프로세스의 정수 핸들 |
-
 | accept()가 3-way handshake를 직접 실행 | TCP handshake는 주로 커널 TCP 스택에서 처리되고, accept()는 완료된 연결을 큐에서 가져옴 |
-
 | accept()가 LISTEN FD를 꺼내 제거 | 원래 LISTEN 소켓은 남고 별도 연결 FD가 반환됨 |
-
 | send() 성공 = 상대 프로세스가 수신 완료 | send() 성공은 로컬 송신 경로에 바이트가 받아들여졌음을 뜻하며 상대 앱 수신 보장은 아님 |
-
 | recv() 한 번 = send() 한 번 | TCP는 메시지 경계가 없는 바이트 스트림 |
-
 | close()를 하면 항상 RST가 전송 | 일반적인 정상 종료는 FIN을 사용하며 RST 여부는 소켓 상태·읽지 않은 데이터·옵션에 따름 |
-
 | recv()가 0 반환 = 소켓이 이미 닫힘 | 상대의 송신 방향 종료(EOF)를 의미하며 로컬에서 close()를 따로 호출해야 함 |
 
 이제 코드 흐름을 따라서 살펴본다. 이전 Phase1에서는 한 코드에 client와 server 코드가 혼재되어 있어 역할 구분이 어려웠다. 코드를 명확하게 client, server로 나누고 독립적인 프로세스로 동작하게 한다. 이후에는 다른 client container를 추가해서 다른 네트워크 네임스페이스에서 통신하는것도 살펴본다.
@@ -1028,21 +1016,13 @@ gcc -O0 -g3 client.c -o client
 ![Notion 이미지 3](https://raw.githubusercontent.com/syslians/syslians.github.io/master/assets/images/posts/2026-11-02-mini-l4-load-balancer-tcp-echo-server/03-40eaa16a.png)
 
 | 변수 | 자료형 | 역할 |
-
 | --- | --- | --- |
-
 | server_addr | struct sockaddr_in | 연결할 서버의 IPv4 주소와 포트 |
-
 | send_buffer | char[] | 서버에 전송할 데이터를 보관하는 사용자 공간 버퍼 |
-
 | recv_buffer | char[] | 서버에서 수신한 데이터를 보관하는 사용자 공간 버퍼 |
-
 | total_sent | size_t | 지금까지 전송한 총 바이트 수. 메모리 크기나 바이트 수를 표현하기 위한 부호 없는 정수형 |
-
 | total_received | size_t | 지금까지 수신한 총 바이트 수 |
-
 | send_count | unsigned long | send() 횟수를 기록하기 위한 변수. 현재 os는 linux이므로 8바이트 |
-
 | recv_count | unsigned long | recv() 호출 횟수를 기록하기 위한 변수 |
 
 송수신 버퍼는 유저 공간의 버퍼이지 커널 tcp 스택의 버퍼가 아니다.
@@ -1070,21 +1050,13 @@ int socket(int domain, int type, int protocol);
 첫번째 인자인 domain은 통신 주소 체계를 의미한다. 여기에는 IPv4, IPv6, Unix domain socket등이 올 수 있다. domain은 어떤 주소 체계가 올지 결정한다.
 
 | 상수 | 의미 | 용도 |
-
 | --- | --- | --- |
-
 | AF_INET | IPv4 | IPv4 TCP/UDP 통신 |
-
 | AF_INET6 | IPv6 | IPv6 TCP/UDP 통신 |
-
 | Unix Domain Socket | Unix Domain socket | 같은 호스트 내부 프로세스 통신 |
-
 | AF_PACKET | Packet Socket | Linux L2 패킷 송수신 |
-
 | AF_NETLINK | Netlink Socket | 사용자 공간과 Linux 커널 간 정보 교환 |
-
 | AF_BLUETOOTH | Bluetooth | 블루투스 통신 |
-
 | AF_VSOCK | VSOCK | 호스트와 가상머신간 통신 |
 
 현재 클라이언트와 서버는 아래와 같이 주소가 설정된다.여기서 127.0.0.1 은 IPv4 Loopback 주소이다.
@@ -1096,17 +1068,11 @@ int socket(int domain, int type, int protocol);
 두 번째 인자인 type은 소켓이 어떤 방식으로 데이터를 주고받을지 결정한다.
 
 | 상수 | 의미 | 특징 |
-
 | --- | --- | --- |
-
 | SOCK_STREAM | 스트림 소켓 | 연결 지향, 바이트 스트림 |
-
 | SOCK_DGRAM | 데이터그램 소켓 | 메시지 단위 송수신 |
-
 | SOCK_RAW | Raw Socket | 프로토콜 헤더를 포함한 저수준 통신 |
-
 | SOCK_SEQPACKET | 순서 있는 패킷 소켓 | 연결 지향, 메시지 경계 보존 |
-
 | SOCK_RDM | Reliable Datagram | 신뢰성 있는 데이터그램 유형, 지원 제한적 |
 
 UDP의 경우 SOCK_DGRAM이 들어갈 수 있다. 또한 리눅스에서는 생성 시점부터 Non-blocking을 결정할수도 있다.
@@ -1117,17 +1083,11 @@ socket(AF_INET, SOCK_STREAM \| SOCK_NONBLOCK, 0);
 세번째 인자인 protocol은 protocol을 지정한다.
 
 | 상수 | 일반적인 값 | 의미 |
-
 | --- | --- | --- |
-
 | 0 | 0 | 기본 프로토콜 자동 선택 |
-
 | IPPROTO_TCP | 6 | TCP |
-
 | IPPROTO_UDP | 17 | UDP |
-
 | IPPROTO_ICMP | 1 | IPv4 ICMP |
-
 | IPPROTO_RAW | 255 | IP 헤더를 직접 구성하는 Raw IP 소켓에 사용 |
 
 자세한건 linux man page를 참고한다. [https://man7.org/linux/man-pages/man2/socket.2.html?utm_source=chatgpt.com](https://man7.org/linux/man-pages/man2/socket.2.html?utm_source=chatgpt.com)을 참고한다.
@@ -1161,13 +1121,9 @@ void *memset(void *s, int c, size_t n);
 ```
 
 | 인자 | 현재 코드 | 의미 |
-
 | --- | --- | --- |
-
 | s | &server_addr | 초기화할 메모리의 시작 주소 |
-
 | c | 0 | 각 바이트에 채울 값 |
-
 | n | sizeof(server_addr) | 초기화할 메모리 크기(바이트) |
 
 &server_addr은 구조체 변수의 첫번째 메모리 주소를 가져온다. 자료형은`struct sockaddr_in *`이며, `memset()`을 호출할 때 `void *`로 암시적 변환된다.
@@ -1183,15 +1139,10 @@ void *memset(void *s, int c, size_t n);
 이후에 ip,port, addr등의 값들이 들어가는 구조체이다. 일반적인 Linux 환경에서 구조체의 메모리 배치는 다음과 같다.
 
 | 오프셋 | 필드 | 크기 | 역할 |
-
 | --- | --- | --- | --- |
-
 | 0~1 | `sin_family` | 2바이트 | 주소 체계 |
-
 | 2~3 | `sin_port` | 2바이트 | 포트 번호 |
-
 | 4~7 | `sin_addr` | 4바이트 | IPv4 주소 |
-
 | 8~15 | `sin_zero` | 8바이트 | 패딩 영역 |
 
 ![Notion 이미지 11](https://raw.githubusercontent.com/syslians/syslians.github.io/master/assets/images/posts/2026-11-02-mini-l4-load-balancer-tcp-echo-server/11-40eaa16a.png)
@@ -1266,15 +1217,10 @@ sin_family   9090         127   0         0         1            패딩 영역
 ![Notion 이미지 15](https://raw.githubusercontent.com/syslians/syslians.github.io/master/assets/images/posts/2026-11-02-mini-l4-load-balancer-tcp-echo-server/15-40faa16a.png)
 
 | 바이트 위치 | 필드 | 메모리 값 | 해석 |
-
 | --- | --- | --- | --- |
-
 | 0–1 | `sin_family` | `02 00` | `AF_INET = 2` |
-
 | 2–3 | `sin_port` | `23 82` | 포트 `9090` |
-
 | 4–7 | `sin_addr` | `7F 00 00 01` | `127.0.0.1` |
-
 | 8–15 | `sin_zero` | `00` × 8 | 초기화된 패딩 |
 
 ### 5. connect() 호출
@@ -1318,13 +1264,9 @@ fgets(
 ```
 
 | 인자 | 전달값 | 의미 |
-
 | --- | --- | --- |
-
 | `str` | `send_buffer` | 데이터를 저장할 배열의 시작 주소 |
-
 | `n` | `sizeof(send_buffer)` | 읽기 버퍼 크기 |
-
 | `stream` | `stdin` | 표준 입력 스트림 |
 
 ```plain text
@@ -1416,17 +1358,11 @@ ssize_t send(
 ```
 
 | 인자 | 현재 코드 | 의미 |
-
 | --- | --- | --- |
-
 | `sockfd` | `sockfd` | 데이터를 보낼 TCP 소켓의 FD |
-
 | `buf` | `send_buffer + sent` | 이번에 전송할 데이터의 시작 주소 |
-
 | `len` | `remaining` | 전송을 요청할 바이트 수 |
-
 | `flags` | `0` | 추가 송신 옵션 없음 |
-
 | 반환값 | `n` | 실제로 처리된 바이트 수 또는 오류 |
 
 `send_buffer`는 배열의 시작 주소로 변환되어 사용되고, `sent`는 이미 전송된 바이트 수이다.
