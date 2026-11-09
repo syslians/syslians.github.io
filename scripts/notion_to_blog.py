@@ -117,9 +117,10 @@ def render(items, image_dir, image_url, count):
                 width = max(map(len, rows))
                 cells = [[rich(c).replace("\n", " ") for c in row] for row in rows]
                 cells = [row + [""] * (width - len(row)) for row in cells]
-                output.append("| " + " | ".join(cells[0]) + " |")
-                output.append("| " + " | ".join(["---"] * width) + " |")
-                output.extend("| " + " | ".join(row) + " |" for row in cells[1:])
+                table_lines = ["| " + " | ".join(cells[0]) + " |",
+                               "| " + " | ".join(["---"] * width) + " |"]
+                table_lines.extend("| " + " | ".join(row) + " |" for row in cells[1:])
+                output.append("\n".join(table_lines))
         elif kind == "divider":
             output.append("---")
         elif kind in ("bookmark", "embed", "link_preview"):
