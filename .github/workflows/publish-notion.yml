@@ -1,4 +1,4 @@
-name: Publish Notion page as PR
+name: Publish Notion page to master
 
 on:
   push:
@@ -47,9 +47,9 @@ jobs:
       - name: Export Notion post and images
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_URL: ${{ github.event_name == 'push' && 'https://app.notion.com/p/409aa16a5aa480ecb083f34ede72c1f0' || inputs.notion_url }}
-          POST_DATE: ${{ github.event_name == 'push' && '2026-10-30' || inputs.post_date }}
-          POST_SLUG: ${{ github.event_name == 'push' && 'snort-ids' || inputs.slug }}
+          NOTION_URL: ${{ github.event_name == 'push' && 'https://app.notion.com/p/413aa16a5aa481b2bf02ec358bef7440' || inputs.notion_url }}
+          POST_DATE: ${{ github.event_name == 'push' && '2026-11-09' || inputs.post_date }}
+          POST_SLUG: ${{ github.event_name == 'push' && 'bwapp-xss-eval-cookies-ajax-json' || inputs.slug }}
         run: |
           python scripts/notion_to_blog.py --url "$NOTION_URL" ${POST_DATE:+--date "$POST_DATE"} ${POST_SLUG:+--slug "$POST_SLUG"}
       - name: Validate newly generated post and images
