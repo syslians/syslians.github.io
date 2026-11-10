@@ -103,100 +103,32 @@ XSS - Stored (Cookies), xss_stored_1.php에서 input box에 script를 작성하�
 
 ![Notion 이미지 11]({{ '/assets/images/posts/2026-11-09-bwapp-xss-eval-cookies-ajax-json/11-413aa16a.png' | relative_url }})
 
-2\. 응답의 Set-Cookie와 chrome browser Storage → Cookies 값 확인
+### 2. 응답의 Set-Cookie와 chrome browser Storage → Cookies 값 확인
 
-```sql
+```text
 http://192.168.20.205/bWAPP/xss_stored_1.php?genre=<script>alert('STORED_XSS_TEST')</script>
 ```
 
 문자열 인코딩은 아래처럼 대응된다.
 
-\<script>alert('STORED_XSS_TEST')\</script>
+`<script>alert('STORED_XSS_TEST')</script>`
 
 %3Cscript%3E alert%28%27STORED_XSS_TEST%27%29%3C%2Fscript%3E
 
-<table header-row="true">
-<colgroup>
-<col width="207.33333333333334" />
-<col width="207.33333333333334" />
-</colgroup>
-<tr>
-<td>
-문자열
-</td>
-<td>
-인코딩 
-</td>
-</tr>
-<tr>
-<td>
-\<
-</td>
-<td>
-%3C
-</td>
-</tr>
-<tr>
-<td>
->
-</td>
-<td>
-%3E 
-</td>
-</tr>
-<tr>
-<td>
-(
-</td>
-<td>
-%28
-</td>
-</tr>
-<tr>
-<td>
-‘
-</td>
-<td>
-%27
-</td>
-</tr>
-<tr>
-<td>
-‘
-</td>
-<td>
-%27
-</td>
-</tr>
-<tr>
-<td>
-\<
-</td>
-<td>
-%3C
-</td>
-</tr>
-<tr>
-<td>
-/
-</td>
-<td>
-%2F
-</td>
-</tr>
-<tr>
-<td>
->
-</td>
-<td>
-%3E
-</td>
-</tr>
-</table>
+| 문자열 | URL 인코딩 |
+| --- | --- |
+| `<` | %3C |
+| `>` | %3E |
+| `(` | %28 |
+| ‘ | %27 |
+| ‘ | %27 |
+| `<` | %3C |
+| `/` | %2F |
+| `>` | %3E |
 
 PHP /xss_stored_1.php에서 처리 로직. 
 
-```javascript
+```php
 // 68~69행: 사용자 입력 수신
 $entry = xss($_POST["entry"]); // entry :<script>alert('STORED_XSS_TEST')</script>
 $owner = $_SESSION["login"];  // session: 859a3c8ae39a29b2f77538a87cbc2226
@@ -281,7 +213,7 @@ SQL 처리 과정에서 다른 변환이 없다면 DB에는 이 HTML 문자열�
 Low는 xss_check(0)
 
 - db에 저장할때 아래 문자를 그대로 저장한다.
-  - \<script>alert(1)\</script>
+  - `<`script>alert(1)`<`/script>
 
 HTML 출력
 
@@ -302,17 +234,17 @@ entry
 </tr>
 <tr>
 <td>
-\<script>alert(1)\</script>
+`<`script>alert(1)`<`/script>
 </td>
 </tr>
 <tr>
 <td>
-\<script>alert(1)\</script>
+`<`script>alert(1)`<`/script>
 </td>
 </tr>
 <tr>
 <td>
-\<script>alert(1)\</script>
+`<`script>alert(1)`<`/script>
 </td>
 </tr>
 </table>
@@ -336,17 +268,17 @@ entry
 </tr>
 <tr>
 <td>
-\<script>alert(1)\</script>
+`<`script>alert(1)`<`/script>
 </td>
 </tr>
 <tr>
 <td>
-\<script>alert(1)\</script>
+`<`script>alert(1)`<`/script>
 </td>
 </tr>
 <tr>
 <td>
-\<script>alert(1)\</script>
+`<`script>alert(1)`<`/script>
 </td>
 </tr>
 </table>
@@ -439,7 +371,7 @@ title = %3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E
 <img src=x onerror=alert(document.cookie)>
 ```
 
-**이후 **필터링 없이 응답에 반영한다고 가정하면, 다음 JSON이 반환될 수 있다.
+**이후 필터링 없이** 응답에 반영한다고 가정하면, 다음 JSON이 반환될 수 있다.
 
 ```txt
 {
@@ -470,7 +402,7 @@ document.getElementById("result").innerHTML = result;
 <img src=x onerror=alert(document.cookie)>
 ```
 
-4. **`innerHTML`****이 문자열을 실제 HTML 요소로 만든다.**
+4. **`innerHTML`이 문자열을 실제 HTML 요소로 만든다.**
 
 ```txt
 document.getElementById("result").innerHTML = result;
