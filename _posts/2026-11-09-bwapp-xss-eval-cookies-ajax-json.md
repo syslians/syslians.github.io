@@ -68,7 +68,7 @@ high level 설정 후
 
 ![Notion 이미지 7]({{ '/assets/images/posts/2026-11-09-bwapp-xss-eval-cookies-ajax-json/07-413aa16a.png' | relative_url }})
 
-코드는 `date`라는 이름인지 검사하는 것이 아니라, **그 안의 값이 정확히 ****`Date()`****인지 검사한다.**
+코드는 `date`라는 이름인지 검사하는 것이 아니라, **그 안의 값이 정확히 `Date()`인지 검사한다.**
 
 ```txt
 if($_GET["date"] != "Date()")
@@ -213,7 +213,7 @@ SQL 처리 과정에서 다른 변환이 없다면 DB에는 이 HTML 문자열�
 Low는 xss_check(0)
 
 - db에 저장할때 아래 문자를 그대로 저장한다.
-  - `<`script>alert(1)`<`/script>
+  - `<script>alert(1)</script>`
 
 HTML 출력
 
@@ -223,31 +223,11 @@ for문을 돌면서 html에 3번 출력되고, 결과적으로 스크립트도 3
 
 - echo $row->entry
 
-<table>
-<colgroup>
-<col width="207.33333333333334" />
-</colgroup>
-<tr>
-<td>
-entry
-</td>
-</tr>
-<tr>
-<td>
-`<`script>alert(1)`<`/script>
-</td>
-</tr>
-<tr>
-<td>
-`<`script>alert(1)`<`/script>
-</td>
-</tr>
-<tr>
-<td>
-`<`script>alert(1)`<`/script>
-</td>
-</tr>
-</table>
+| 입력값 |
+| --- |
+| `<script>alert(1)</script>` |
+| `<script>alert(1)</script>` |
+| `<script>alert(1)</script>` |
 
 High 레벨에서는 저장하는것은 똑같으나 html 출력하기 전에 인코딩을해서 출력하기 때문에 텍스트로 처리된다.
 
@@ -257,31 +237,11 @@ DB 저장
 
 - echo $row->entry
 
-<table>
-<colgroup>
-<col width="207.33333333333334" />
-</colgroup>
-<tr>
-<td>
-entry
-</td>
-</tr>
-<tr>
-<td>
-`<`script>alert(1)`<`/script>
-</td>
-</tr>
-<tr>
-<td>
-`<`script>alert(1)`<`/script>
-</td>
-</tr>
-<tr>
-<td>
-`<`script>alert(1)`<`/script>
-</td>
-</tr>
-</table>
+| 입력값 |
+| --- |
+| `<script>alert(1)</script>` |
+| `<script>alert(1)</script>` |
+| `<script>alert(1)</script>` |
 
 HTML 응답 소스에 다음과 같이 들어간다
 
